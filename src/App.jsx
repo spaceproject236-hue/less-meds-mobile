@@ -148,7 +148,7 @@ export default function LessMedsFree() {
             </header>
 
             {/* Content */}
-            <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", paddingBottom:8, scrollbarWidth:"none" }}>
+            <div style={{ flex:1, overflowY:screen==="fullApp"?"hidden":"auto", overflowX:"hidden", paddingBottom:screen==="fullApp"?0:8, scrollbarWidth:"none", display:"flex", flexDirection:"column" }}>
               {screen==="home" && <HomeScreen t={t} onStart={() => setScreen("checker")} onResources={() => setScreen("resources")} />}
               {screen==="checker" && <CheckerScreen t={t} meds={meds} setMeds={setMeds} onResult={r => { setResult(r); setScreen("results"); }} />}
               {screen==="results" && result && <ResultsScreen t={t} result={result} meds={meds} pricingTab={pricingTab} setPricingTab={setPricingTab} onBack={() => setScreen("checker")} onResources={() => setScreen("resources")} onPurchase={plan => { setPlanType(plan); setScreen("paywall"); }} />}
@@ -157,7 +157,7 @@ export default function LessMedsFree() {
               {screen==="patientInfo" && <PatientInfoScreen t={t} planType={planType} prefillMeds={meds} onSubmit={info => { setPatientInfo(info); setScreen(planType==="monthly"?"fullApp":"submitted"); }} onBack={() => setScreen("paywall")} />}
               {screen==="submitted" && <SubmittedScreen t={t} patientInfo={patientInfo} assessmentReady={assessmentReady} onViewAssessment={() => { setScreen("assessment"); setAssessmentBadge(false); }} />}
               {screen==="assessment" && <AssessmentScreen t={t} patientInfo={patientInfo} result={result} meds={meds} assessmentReady={assessmentReady} />}
-              {screen==="fullApp" && <FullAppScreen t={t} patientInfo={patientInfo} result={result} meds={meds} />}
+              {screen==="fullApp" && <FullAppScreen patientInfo={patientInfo} result={result} prefillMeds={meds} />}
             </div>
 
             {/* Bottom Nav */}
@@ -648,92 +648,402 @@ function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady }) {
 }
 
 // ─── FULL APP (Monthly) ───────────────────────────────────────────────────────
-function FullAppScreen({ t, patientInfo, result, meds }) {
-  const risk = result ? riskLevel(result.score) : { label:"Moderate Risk", color:"warning", emoji:"🟡" };
-  const fg = t[risk.color]; const score = result?.score ?? 58;
-  const [tab, setTab] = useState("overview");
-  const displayMeds = meds.length ? meds : [{ id:1, name:"Metformin", dose:"500mg", freq:"Twice daily" },{ id:2, name:"Lisinopril", dose:"10mg", freq:"Once daily" },{ id:3, name:"Aspirin", dose:"81mg", freq:"Once daily" }];
+// ─── FULL APP THEMES (original caregiver app) ────────────────────────────────
+const FA_THEMES = {
+  dark: {
+    appBg:"#060b14", headerBg:"#0a1628", cardBg:"#0a1628", cardBg2:"#0f172a", inputBg:"#0f172a",
+    border:"#1e293b", textPrimary:"#f1f5f9", textSecondary:"#94a3b8", textMuted:"#64748b",
+    accent:"#06b6d4", accentBg:"rgba(6,182,212,0.15)", success:"#22c55e", successBg:"#052e16",
+    warning:"#f59e0b", warningBg:"#1c1200", danger:"#ef4444", dangerBg:"#1c0002",
+    dangerText:"#fca5a5", warningText:"#fcd34d", successText:"#86efac",
+    navBg:"#0a1628", navBorder:"#1e293b", navActive:"#06b6d4", navInactive:"#64748b",
+    msgOut:"#06b6d4", msgOutText:"#000000", msgIn:"#1e293b", msgInText:"#f1f5f9",
+    pillBg:"#1e293b", pillText:"#94a3b8", statusBar:"#060b14", progressTrack:"#1e293b",
+    btnPrimary:"#06b6d4", btnPrimaryText:"#000000",
+  },
+  light: {
+    appBg:"#f0f4f8", headerBg:"#ffffff", cardBg:"#ffffff", cardBg2:"#f8fafc", inputBg:"#f8fafc",
+    border:"#e2e8f0", textPrimary:"#0f172a", textSecondary:"#475569", textMuted:"#94a3b8",
+    accent:"#0369a1", accentBg:"rgba(3,105,161,0.1)", success:"#16a34a", successBg:"#f0fdf4",
+    warning:"#d97706", warningBg:"#fffbeb", danger:"#dc2626", dangerBg:"#fef2f2",
+    dangerText:"#dc2626", warningText:"#b45309", successText:"#15803d",
+    navBg:"#ffffff", navBorder:"#e2e8f0", navActive:"#0369a1", navInactive:"#94a3b8",
+    msgOut:"#0369a1", msgOutText:"#ffffff", msgIn:"#f1f5f9", msgInText:"#0f172a",
+    pillBg:"#f1f5f9", pillText:"#475569", statusBar:"#ffffff", progressTrack:"#e2e8f0",
+    btnPrimary:"#0369a1", btnPrimaryText:"#ffffff",
+  },
+};
+
+const FA_MOCK_ALERTS = [
+  { id:"a1", type:"critical", msg:"Warfarin + Aspirin interaction flagged", time:"2 hrs ago" },
+  { id:"a2", type:"warning", msg:"3 missed doses this week", time:"Today" },
+  { id:"a3", type:"info", msg:"Review scheduled for Feb 25", time:"Yesterday" },
+];
+const FA_MOCK_MESSAGES_INIT = [
+  { id:"msg1", from:"Dr. Patel", text:"Please ensure your patient takes Lisinopril with food.", time:"10:22 AM", outgoing:false },
+  { id:"msg2", from:"You", text:"Understood. Will give it now.", time:"10:30 AM", outgoing:true },
+  { id:"msg3", from:"Pharm. Chen", text:"Watch for swelling or shortness of breath with the Warfarin + Aspirin combination.", time:"11:05 AM", outgoing:false },
+];
+const FA_SYMPTOM_OPTIONS = ["Dizziness","Nausea","Fatigue","Shortness of breath","Swelling","Confusion","Headache","Chest pain","Rash","Other"];
+const FA_APPOINTMENTS = [
+  { id:"ap1", title:"Medication Review", doctor:"Dr. Patel", date:"Feb 25, 2026", time:"2:00 PM", location:"Room 204" },
+  { id:"ap2", title:"Pharmacist Consult", doctor:"Pharm. Chen", date:"Mar 4, 2026", time:"10:00 AM", location:"Pharmacy Clinic" },
+];
+
+function FALogo({ th }) {
+  const isLight = th === "light";
+  const cL = isLight ? "#0369a1" : "#06b6d4";
+  const cR = isLight ? "#0ea5e9" : "#0e7490";
+  const arr = isLight ? "#0369a1" : "#06b6d4";
+  const dash = isLight ? "#f8fafc" : "#060b14";
+  const txt = isLight ? "#0f172a" : "#f1f5f9";
   return (
-    <div style={{ paddingBottom:16 }}>
-      <div style={{ padding:"16px 18px 13px", background:`linear-gradient(135deg, ${t.surfaceAlt}, ${t.bg})`, borderBottom:`1px solid ${t.border}` }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-          <div>
-            <div style={{ fontSize:10, color:t.accent, fontWeight:600, letterSpacing:0.8, textTransform:"uppercase", marginBottom:2 }}>Monthly Plan Active ✓</div>
-            <div style={{ fontFamily:serif, fontSize:18, fontWeight:400 }}>Welcome, {patientInfo?.caregiverName?.split(" ")[0]||"Caregiver"}</div>
-            <div style={{ color:t.textSub, fontSize:12, marginTop:2 }}>Monitoring: <strong style={{ color:t.text }}>{patientInfo?.firstName}</strong>, age {patientInfo?.age}</div>
-          </div>
-          <div style={{ background:t[risk.color+"Dim"], border:`1px solid ${t[risk.color]}44`, borderRadius:10, padding:"8px 10px", textAlign:"center" }}>
-            <div style={{ fontFamily:serif, fontSize:20, fontWeight:400, color:fg }}>{score}</div>
-            <div style={{ fontSize:8, color:fg, fontWeight:600 }}>RISK SCORE</div>
+    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+      <svg width="28" height="34" viewBox="0 0 28 34" fill="none">
+        <path d="M3 13 C3 8 6 4 10 4 L14 4 L14 22 L10 22 C6 22 3 18 3 13 Z" fill={cL}/>
+        <path d="M14 4 L18 4 C22 4 25 8 25 13 C25 18 22 22 18 22 L14 22 Z" fill={cR}/>
+        <line x1="14" y1="4" x2="14" y2="22" stroke={dash} strokeWidth="1.2" strokeDasharray="1.5 1.5"/>
+        <path d="M14 25 L14 29" stroke={arr} strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M10 27 L14 32 L18 27" stroke={arr} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      </svg>
+      <div>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:14, color:txt, letterSpacing:"-0.3px", lineHeight:1 }}>Less</div>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:300, fontSize:10, color:arr, letterSpacing:"2px", lineHeight:1, marginTop:1 }}>MEDS</div>
+      </div>
+    </div>
+  );
+}
+
+function FullAppScreen({ patientInfo, result, prefillMeds }) {
+  const [faTheme, setFaTheme] = useState("dark");
+  const ft = FA_THEMES[faTheme];
+  const [faScreen, setFaScreen] = useState("home");
+  const [faMeds, setFaMeds] = useState(() => {
+    if (prefillMeds && prefillMeds.length) {
+      const colors = ["#ef4444","#3b82f6","#8b5cf6","#f59e0b","#06b6d4","#22c55e","#ec4899"];
+      return prefillMeds.map((m, i) => ({ id: m.id || "m"+i, name: m.name, dose: m.dose || "—", time: "8:00 AM", taken: false, color: colors[i % colors.length] }));
+    }
+    return [
+      { id:"m1", name:"Warfarin", dose:"5mg", time:"8:00 AM", taken:true, color:"#ef4444" },
+      { id:"m2", name:"Metformin", dose:"1000mg", time:"8:00 AM", taken:true, color:"#3b82f6" },
+      { id:"m3", name:"Lisinopril", dose:"10mg", time:"8:00 AM", taken:false, color:"#8b5cf6" },
+      { id:"m4", name:"Aspirin", dose:"81mg", time:"12:00 PM", taken:false, color:"#f59e0b" },
+      { id:"m5", name:"Atorvastatin", dose:"40mg", time:"8:00 PM", taken:false, color:"#06b6d4" },
+      { id:"m6", name:"Potassium", dose:"20mEq", time:"8:00 AM", taken:false, color:"#22c55e" },
+    ];
+  });
+  const [faSymptoms, setFaSymptoms] = useState([]);
+  const [showSymForm, setShowSymForm] = useState(false);
+  const [selSymptoms, setSelSymptoms] = useState([]);
+  const [symNotes, setSymNotes] = useState("");
+  const [faMessages, setFaMessages] = useState(FA_MOCK_MESSAGES_INIT);
+  const [faMsgInput, setFaMsgInput] = useState("");
+  const [faToasts, setFaToasts] = useState([]);
+
+  const takenCount = faMeds.filter(m => m.taken).length;
+  const score = result?.score ?? 82;
+  const patientName = patientInfo?.firstName ? `${patientInfo.firstName}` : "Eleanor";
+  const patientAge = patientInfo?.age ?? 78;
+
+  function faToast(msg, type="success") {
+    const id = Date.now();
+    setFaToasts(p => [...p, { id, msg, type }]);
+    setTimeout(() => setFaToasts(p => p.filter(x => x.id !== id)), 3000);
+  }
+  function markTaken(id) {
+    const med = faMeds.find(m => m.id === id);
+    setFaMeds(p => p.map(m => m.id !== id ? m : { ...m, taken:true }));
+    faToast(`${med?.name} marked as taken ✓`);
+  }
+  function logSymptoms() {
+    if (!selSymptoms.length) return;
+    const entry = { id:Date.now(), symptoms:selSymptoms, notes:symNotes, time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}), date:new Date().toLocaleDateString() };
+    setFaSymptoms(p => [entry, ...p]);
+    setSelSymptoms([]); setSymNotes(""); setShowSymForm(false);
+    faToast("Symptoms reported to care team", "info");
+  }
+  function sendMessage() {
+    if (!faMsgInput.trim()) return;
+    setFaMessages(p => [...p, { id:Date.now(), from:"You", text:faMsgInput, time:new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}), outgoing:true }]);
+    setFaMsgInput("");
+    faToast("Message sent securely");
+  }
+
+  const navItems = [
+    { id:"home", icon:"⬡", label:"Home" },
+    { id:"meds", icon:"◎", label:"Meds" },
+    { id:"symptoms", icon:"♥", label:"Symptoms" },
+    { id:"messages", icon:"◈", label:"Messages" },
+    { id:"settings", icon:"◍", label:"Settings" },
+  ];
+
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:ft.appBg, transition:"background 0.3s", fontFamily:"'DM Sans',sans-serif" }}>
+      {/* Header */}
+      <div style={{ padding:"10px 20px 12px", background:ft.headerBg, borderBottom:`1px solid ${ft.border}`, flexShrink:0, boxShadow:faTheme==="light"?"0 1px 4px rgba(0,0,0,0.06)":"none" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <FALogo th={faTheme} />
+          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background:score>=71?ft.danger:score>=41?ft.warning:ft.success }}/>
+            <div style={{ fontSize:13, fontWeight:700, color:score>=71?ft.danger:score>=41?ft.warning:ft.success }}>Score: {score}</div>
           </div>
         </div>
+        <div style={{ fontSize:12, color:ft.textSecondary, marginTop:3 }}>{patientName} · Age {patientAge}</div>
       </div>
-      <div style={{ display:"flex", borderBottom:`1px solid ${t.border}`, background:t.navBg }}>
-        {["overview","meds","messages"].map(s => (
-          <button key={s} onClick={() => setTab(s)} style={{ flex:1, border:"none", background:"none", padding:"10px 0", color:tab===s?t.accent:t.textMuted, fontSize:11, fontWeight:tab===s?600:400, cursor:"pointer", fontFamily:font, borderBottom:`2px solid ${tab===s?t.accent:"transparent"}`, textTransform:"capitalize", transition:"all 0.2s" }}>
-            {s==="overview"?"Overview":s==="meds"?"Medications":"Messages"}
+
+      {/* Content */}
+      <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:faScreen==="messages"?0:14, background:ft.appBg, scrollbarWidth:"none" }}>
+        {faScreen==="home" && (
+          <FAHomeScreen ft={ft} faMeds={faMeds} takenCount={takenCount} alerts={FA_MOCK_ALERTS} onNavigate={setFaScreen} onMarkTaken={markTaken} score={score} appointments={FA_APPOINTMENTS} />
+        )}
+        {faScreen==="meds" && <FAMedsScreen ft={ft} faMeds={faMeds} onMark={markTaken} />}
+        {faScreen==="symptoms" && (
+          <FASymptomsScreen ft={ft} symptoms={faSymptoms} show={showSymForm} setShow={setShowSymForm}
+            selected={selSymptoms} setSelected={setSelSymptoms} notes={symNotes} setNotes={setSymNotes}
+            onLog={logSymptoms} options={FA_SYMPTOM_OPTIONS} />
+        )}
+        {faScreen==="messages" && (
+          <FAMessagesScreen ft={ft} messages={faMessages} msgInput={faMsgInput} setMsgInput={setFaMsgInput} onSend={sendMessage} />
+        )}
+        {faScreen==="settings" && <FASettingsScreen ft={ft} faTheme={faTheme} setFaTheme={setFaTheme} patientName={patientName} patientAge={patientAge} caregiverName={patientInfo?.caregiverName || "Caregiver"} />}
+      </div>
+
+      {/* Bottom Nav */}
+      <div style={{ height:68, background:ft.navBg, borderTop:`1px solid ${ft.navBorder}`, display:"flex", flexShrink:0, boxShadow:faTheme==="light"?"0 -1px 4px rgba(0,0,0,0.06)":"none" }}>
+        {navItems.map(n => (
+          <button key={n.id} onClick={() => setFaScreen(n.id)} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, background:"transparent", border:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
+            <span style={{ fontSize:15, opacity:faScreen===n.id?1:0.4, transition:"opacity 0.15s" }}>{n.icon}</span>
+            <span style={{ fontSize:9, letterSpacing:0.5, textTransform:"uppercase", fontWeight:600, color:faScreen===n.id?ft.navActive:ft.navInactive, transition:"color 0.15s" }}>{n.label}</span>
           </button>
         ))}
       </div>
-      {tab==="overview" && (
-        <div style={{ padding:"14px 18px" }}>
-          <div style={{ background:t.success+"22", border:`1px solid ${t.success}44`, borderRadius:10, padding:"11px 13px", marginBottom:14, display:"flex", gap:7 }}>
-            <span>✅</span><div><div style={{ color:t.success, fontWeight:600, fontSize:13 }}>Plan Active — Full clinical review underway</div><div style={{ color:t.textSub, fontSize:11, marginTop:1 }}>Next scheduled check-in: 30 days</div></div>
+
+      {/* Toasts */}
+      <div style={{ position:"absolute", top:120, left:16, right:16, display:"flex", flexDirection:"column", gap:8, zIndex:20, pointerEvents:"none" }}>
+        {faToasts.map(toast => (
+          <div key={toast.id} style={{ padding:"10px 14px", borderRadius:10, background:toast.type==="success"?ft.successBg:ft.cardBg, border:`1px solid ${toast.type==="success"?ft.success:ft.border}`, color:ft.textPrimary, fontSize:12, boxShadow:"0 4px 20px rgba(0,0,0,0.15)", animation:"slideDown 0.3s ease" }}>
+            {toast.type==="success"?"✅ ":"ℹ️ "}{toast.msg}
           </div>
-          <SectionLabel t={t}>Care Team</SectionLabel>
-          {[{ name:"Dr. R. Patel", role:"Physician", emoji:"👨‍⚕️", status:"Active" },{ name:"Pharm. S. Chen", role:"Clinical Pharmacist", emoji:"💊", status:"Reviewing" }].map(m => (
-            <div key={m.name} style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:10, padding:"11px 13px", display:"flex", gap:9, alignItems:"center", marginBottom:7 }}>
-              <div style={{ width:34, height:34, borderRadius:"50%", background:t.accentDim, border:`1px solid ${t.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>{m.emoji}</div>
-              <div style={{ flex:1 }}><div style={{ fontWeight:600, fontSize:13 }}>{m.name}</div><div style={{ color:t.textSub, fontSize:11 }}>{m.role}</div></div>
-              <span style={{ background:t.successDim, color:t.success, borderRadius:6, padding:"2px 7px", fontSize:10, fontWeight:600 }}>{m.status}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// Full App sub-screens
+function FAHomeScreen({ ft, faMeds, takenCount, alerts, onNavigate, onMarkTaken, score, appointments }) {
+  const nextMed = faMeds.find(m => !m.taken);
+  const scoreColor = score>=71?ft.danger:score>=41?ft.warning:ft.success;
+  return (
+    <div>
+      {/* Progress Ring */}
+      <div style={{ display:"flex", alignItems:"center", gap:14, background:ft.cardBg, border:`1px solid ${ft.border}`, borderRadius:16, padding:14, marginBottom:12, boxShadow:ft.appBg==="#f0f4f8"?"0 1px 4px rgba(0,0,0,0.06)":"none" }}>
+        <svg width={60} height={60} viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="26" fill="none" stroke={ft.progressTrack} strokeWidth="5"/>
+          <circle cx="32" cy="32" r="26" fill="none" stroke={ft.success} strokeWidth="5"
+            strokeDasharray={`${(takenCount/Math.max(faMeds.length,1))*163} 163`}
+            strokeLinecap="round" transform="rotate(-90 32 32)"/>
+          <text x="32" y="36" textAnchor="middle" fill={ft.textPrimary} fontSize="13" fontWeight="700" fontFamily="monospace">{takenCount}/{faMeds.length}</text>
+        </svg>
+        <div>
+          <div style={{ fontSize:13, fontWeight:700, color:ft.textPrimary }}>Today's Progress</div>
+          <div style={{ fontSize:12, color:ft.success, marginTop:2 }}>{takenCount} taken</div>
+          <div style={{ fontSize:12, color:ft.textMuted }}>{faMeds.length - takenCount} remaining</div>
+        </div>
+        <div style={{ marginLeft:"auto", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+          <div style={{ fontSize:10, color:ft.textMuted }}>Risk</div>
+          <div style={{ fontSize:20, fontWeight:700, color:scoreColor }}>{score}</div>
+        </div>
+      </div>
+      {/* Alerts */}
+      {alerts.slice(0,2).map(a => (
+        <div key={a.id} style={{ padding:"9px 12px", borderRadius:11, marginBottom:9, display:"flex", gap:9, alignItems:"flex-start", background:a.type==="critical"?ft.dangerBg:a.type==="warning"?ft.warningBg:ft.cardBg, border:`1px solid ${a.type==="critical"?ft.danger+"44":a.type==="warning"?ft.warning+"44":ft.border}` }}>
+          <span style={{ fontSize:13 }}>{a.type==="critical"?"🔴":a.type==="warning"?"🟡":"🔵"}</span>
+          <div>
+            <div style={{ fontSize:12, fontWeight:600, color:a.type==="critical"?ft.dangerText:a.type==="warning"?ft.warningText:ft.accent }}>{a.msg}</div>
+            <div style={{ fontSize:10, color:ft.textMuted, marginTop:2 }}>{a.time}</div>
+          </div>
+        </div>
+      ))}
+      {/* Next Med */}
+      {nextMed && (
+        <div style={{ background:ft.cardBg, border:`1px solid ${ft.accent}44`, borderRadius:14, padding:14, marginBottom:12 }}>
+          <div style={{ fontSize:10, color:ft.accent, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Next Medication</div>
+          <div style={{ display:"flex", alignItems:"center", gap:11 }}>
+            <div style={{ width:38, height:38, borderRadius:11, background:nextMed.color+"22", border:`1px solid ${nextMed.color}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17 }}>💊</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:ft.textPrimary }}>{nextMed.name}</div>
+              <div style={{ fontSize:11, color:ft.textSecondary }}>{nextMed.dose} · {nextMed.time}</div>
             </div>
-          ))}
-          {result?.flags?.length>0 && <>
-            <SectionLabel t={t}>Risk Factors on File</SectionLabel>
-            {result.flags.slice(0,3).map((f,i) => (
-              <div key={i} style={{ background:t.surface, border:`1px solid ${t.border}`, borderLeft:`3px solid ${t[f.type]}`, borderRadius:9, padding:"8px 12px", display:"flex", justifyContent:"space-between", marginBottom:6 }}>
-                <span style={{ fontSize:12, fontWeight:500 }}>{f.label}</span>
-                <span style={{ background:t[f.type+"Dim"], color:t[f.type], borderRadius:6, padding:"2px 6px", fontSize:10, fontWeight:600 }}>{f.detail}</span>
+            <button onClick={() => onMarkTaken(nextMed.id)} style={{ padding:"6px 12px", borderRadius:9, border:"none", background:ft.btnPrimary, color:ft.btnPrimaryText, fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Mark Taken</button>
+          </div>
+        </div>
+      )}
+      {/* Quick Actions */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:14 }}>
+        {[
+          { label:"Log Symptoms", icon:"♥", screen:"symptoms", color:ft.danger },
+          { label:"Message Team", icon:"◈", screen:"messages", color:ft.accent },
+          { label:"All Meds", icon:"◎", screen:"meds", color:ft.success },
+          { label:"Settings", icon:"◍", screen:"settings", color:ft.textSecondary },
+        ].map(a => (
+          <button key={a.label} onClick={() => onNavigate(a.screen)} style={{ padding:"13px 11px", borderRadius:13, border:`1px solid ${a.color}33`, background:`${a.color}11`, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", textAlign:"left" }}>
+            <div style={{ fontSize:19, marginBottom:5 }}>{a.icon}</div>
+            <div style={{ fontSize:11, fontWeight:600, color:a.color }}>{a.label}</div>
+          </button>
+        ))}
+      </div>
+      {/* Appointments */}
+      <div style={{ fontSize:11, color:ft.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:9 }}>Upcoming</div>
+      {appointments.map(ap => (
+        <div key={ap.id} style={{ background:ft.cardBg, border:`1px solid ${ft.border}`, borderRadius:12, padding:"11px 13px", marginBottom:8, display:"flex", gap:10, alignItems:"center" }}>
+          <div style={{ width:36, height:36, borderRadius:9, background:ft.accentBg, display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, flexShrink:0 }}>📅</div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:13, fontWeight:600, color:ft.textPrimary }}>{ap.title}</div>
+            <div style={{ fontSize:11, color:ft.textSecondary, marginTop:1 }}>{ap.doctor} · {ap.date} at {ap.time}</div>
+            <div style={{ fontSize:10, color:ft.textMuted, marginTop:1 }}>{ap.location}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FAMedsScreen({ ft, faMeds, onMark }) {
+  const times = [...new Set(faMeds.map(m => m.time))];
+  return (
+    <div>
+      <div style={{ fontSize:14, fontWeight:700, color:ft.textPrimary, marginBottom:14 }}>Medication List</div>
+      {times.map(time => (
+        <div key={time} style={{ marginBottom:14 }}>
+          <div style={{ fontSize:10, color:ft.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>📅 {time}</div>
+          {faMeds.filter(m => m.time===time).map(m => (
+            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:11, padding:"11px 13px", borderRadius:11, background:ft.cardBg, border:`1px solid ${m.taken?ft.success+"44":ft.border}`, marginBottom:7, opacity:m.taken?0.7:1 }}>
+              <div style={{ width:34, height:34, borderRadius:9, background:m.color+"22", border:`1px solid ${m.color}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><span style={{ fontSize:14 }}>💊</span></div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontSize:13, fontWeight:600, color:ft.textPrimary }}>{m.name}</div>
+                <div style={{ fontSize:11, color:ft.textSecondary, marginTop:1 }}>{m.dose}</div>
               </div>
+              {m.taken ? <span style={{ fontSize:17 }}>✅</span> : (
+                <button onClick={() => onMark(m.id)} style={{ padding:"5px 11px", borderRadius:8, border:`1px solid ${ft.accent}`, background:ft.accentBg, color:ft.accent, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Take</button>
+              )}
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FASymptomsScreen({ ft, symptoms, show, setShow, selected, setSelected, notes, setNotes, onLog, options }) {
+  function toggle(s) { setSelected(p => p.includes(s) ? p.filter(x => x!==s) : [...p, s]); }
+  return (
+    <div>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
+        <div style={{ fontSize:14, fontWeight:700, color:ft.textPrimary }}>Symptom Log</div>
+        <button onClick={() => setShow(true)} style={{ padding:"5px 13px", borderRadius:8, border:`1px solid ${ft.accent}`, background:ft.accentBg, color:ft.accent, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>+ Report</button>
+      </div>
+      {show && (
+        <div style={{ background:ft.cardBg, border:`1px solid ${ft.border}`, borderRadius:14, padding:14, marginBottom:14 }}>
+          <div style={{ fontSize:13, fontWeight:600, color:ft.textPrimary, marginBottom:11 }}>Report Symptoms</div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:7, marginBottom:11 }}>
+            {options.map(s => (
+              <button key={s} onClick={() => toggle(s)} style={{ padding:"4px 9px", borderRadius:18, border:`1px solid ${selected.includes(s)?ft.accent:ft.border}`, background:selected.includes(s)?ft.accentBg:"transparent", color:selected.includes(s)?ft.accent:ft.textSecondary, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>{s}</button>
             ))}
-          </>}
-        </div>
-      )}
-      {tab==="meds" && (
-        <div style={{ padding:"14px 18px" }}>
-          <SectionLabel t={t}>{displayMeds.length} Medications on File</SectionLabel>
-          {displayMeds.map((m,i) => (
-            <div key={m.id} style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:10, padding:"11px 13px", display:"flex", gap:9, alignItems:"center", marginBottom:7 }}>
-              <div style={{ width:32, height:32, borderRadius:8, background:t.pillBg, color:t.accent, display:"flex", alignItems:"center", justifyContent:"center", fontWeight:700, fontSize:12 }}>{i+1}</div>
-              <div style={{ flex:1 }}><div style={{ fontWeight:600, fontSize:13 }}>{m.name}</div><div style={{ color:t.textSub, fontSize:11 }}>{m.dose} · {m.freq}</div></div>
-              <span>💊</span>
-            </div>
-          ))}
-          <div style={{ background:t.accentDim, border:`1px solid ${t.accent}33`, borderRadius:10, padding:"11px 13px", marginTop:4, fontSize:12, color:t.accent }}>
-            📋 Your pharmacist will review this list and may suggest changes at your next check-in.
+          </div>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Additional notes..." rows={2}
+            style={{ width:"100%", padding:"8px 10px", borderRadius:8, border:`1px solid ${ft.border}`, background:ft.inputBg, color:ft.textPrimary, fontSize:12, fontFamily:"'DM Sans',sans-serif", resize:"none", boxSizing:"border-box", outline:"none" }}/>
+          <div style={{ display:"flex", gap:8, marginTop:9 }}>
+            <button onClick={() => setShow(false)} style={{ flex:1, padding:"8px", borderRadius:8, border:`1px solid ${ft.border}`, background:"transparent", color:ft.textSecondary, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Cancel</button>
+            <button onClick={onLog} style={{ flex:2, padding:"8px", borderRadius:8, border:"none", background:ft.btnPrimary, color:ft.btnPrimaryText, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Submit to Care Team</button>
           </div>
         </div>
       )}
-      {tab==="messages" && (
-        <div style={{ padding:"14px 18px" }}>
-          <SectionLabel t={t}>Secure Messaging</SectionLabel>
-          {[
-            { from:"Pharm. S. Chen", time:"Today, 9:14 AM", msg:`Hi ${patientInfo?.caregiverName?.split(" ")[0]||"there"}, I've received ${patientInfo?.firstName}'s medication list and will have a full review ready within 48 hours. Feel free to message me with any questions.`, unread:true },
-            { from:"LessMeds", time:"Today, 8:00 AM", msg:"Your LessMeds monthly plan is now active. Your care team has been notified and will reach out shortly.", unread:false },
-          ].map((msg,i) => (
-            <div key={i} style={{ background:t.surface, border:`1px solid ${msg.unread?t.accent:t.border}`, borderRadius:11, padding:"13px", marginBottom:9, position:"relative" }}>
-              {msg.unread && <div style={{ position:"absolute", top:11, right:11, width:7, height:7, borderRadius:"50%", background:t.accent }} />}
-              <div style={{ fontWeight:600, fontSize:13, marginBottom:1 }}>{msg.from}</div>
-              <div style={{ color:t.textMuted, fontSize:10, marginBottom:6 }}>{msg.time}</div>
-              <p style={{ color:t.textSub, fontSize:12, lineHeight:1.6, margin:0 }}>{msg.msg}</p>
+      {symptoms.length === 0 && !show && <div style={{ textAlign:"center", padding:"36px 0", color:ft.textMuted, fontSize:13 }}>No symptoms logged yet.<br/>Tap + Report to log symptoms.</div>}
+      {symptoms.map(s => (
+        <div key={s.id} style={{ background:ft.cardBg, border:`1px solid ${ft.border}`, borderRadius:11, padding:13, marginBottom:9 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:7 }}>
+            <span style={{ fontSize:10, color:ft.textMuted }}>{s.date} · {s.time}</span>
+            <span style={{ fontSize:10, color:ft.warning }}>Reported to care team</span>
+          </div>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
+            {s.symptoms.map(sym => <span key={sym} style={{ padding:"2px 7px", borderRadius:18, background:ft.pillBg, color:ft.pillText, fontSize:10 }}>{sym}</span>)}
+          </div>
+          {s.notes && <div style={{ marginTop:7, fontSize:11, color:ft.textMuted, fontStyle:"italic" }}>{s.notes}</div>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FAMessagesScreen({ ft, messages, msgInput, setMsgInput, onSend }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
+      <div style={{ padding:"11px 16px", borderBottom:`1px solid ${ft.border}`, background:ft.headerBg, flexShrink:0 }}>
+        <div style={{ fontSize:13, fontWeight:700, color:ft.textPrimary }}>Secure Messaging</div>
+        <div style={{ fontSize:10, color:ft.success, marginTop:1 }}>🔒 End-to-end encrypted · No PHI in notifications</div>
+      </div>
+      <div style={{ flex:1, overflowY:"auto", padding:14, display:"flex", flexDirection:"column", gap:9, background:ft.appBg, scrollbarWidth:"none" }}>
+        {messages.map(m => (
+          <div key={m.id} style={{ display:"flex", justifyContent:m.outgoing?"flex-end":"flex-start" }}>
+            <div style={{ maxWidth:"80%", padding:"9px 13px", borderRadius:m.outgoing?"16px 4px 16px 16px":"4px 16px 16px 16px", background:m.outgoing?ft.msgOut:ft.msgIn, color:m.outgoing?ft.msgOutText:ft.msgInText }}>
+              {!m.outgoing && <div style={{ fontSize:9, fontWeight:700, color:ft.accent, marginBottom:2 }}>{m.from}</div>}
+              <div style={{ fontSize:12, lineHeight:1.4 }}>{m.text}</div>
+              <div style={{ fontSize:9, color:m.outgoing?`${ft.msgOutText}88`:ft.textMuted, marginTop:2, textAlign:"right" }}>{m.time}</div>
             </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding:11, borderTop:`1px solid ${ft.border}`, background:ft.headerBg, display:"flex", gap:7, flexShrink:0 }}>
+        <input value={msgInput} onChange={e => setMsgInput(e.target.value)} onKeyDown={e => e.key==="Enter" && onSend()}
+          placeholder="Secure message..." style={{ flex:1, padding:"9px 13px", borderRadius:22, border:`1px solid ${ft.border}`, background:ft.inputBg, color:ft.textPrimary, fontSize:12, fontFamily:"'DM Sans',sans-serif", outline:"none" }}/>
+        <button onClick={onSend} style={{ width:38, height:38, borderRadius:"50%", border:"none", background:ft.btnPrimary, color:ft.btnPrimaryText, fontSize:15, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>→</button>
+      </div>
+    </div>
+  );
+}
+
+function FASettingsScreen({ ft, faTheme, setFaTheme, patientName, patientAge, caregiverName }) {
+  return (
+    <div>
+      <div style={{ fontSize:14, fontWeight:700, color:ft.textPrimary, marginBottom:14 }}>Settings</div>
+      {/* Theme Card */}
+      <div style={{ background:ft.cardBg, border:`1px solid ${ft.accent}44`, borderRadius:14, padding:14, marginBottom:13 }}>
+        <div style={{ fontSize:10, color:ft.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:11 }}>Display Theme</div>
+        <div style={{ display:"flex", gap:9 }}>
+          {Object.entries(FA_THEMES).map(([key]) => (
+            <button key={key} onClick={() => setFaTheme(key)} style={{ flex:1, padding:"12px 9px", borderRadius:11, border:`2px solid ${faTheme===key?ft.accent:ft.border}`, background:faTheme===key?ft.accentBg:ft.cardBg2, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", textAlign:"center", transition:"all 0.2s" }}>
+              <div style={{ fontSize:10, fontWeight:700, color:ft.textPrimary }}>{key==="dark"?"🌙 Dark":"☀️ Light"}</div>
+              <div style={{ fontSize:9, color:ft.textMuted, marginTop:3 }}>{key==="dark"?"High contrast":"Clinical white"}</div>
+              {faTheme===key && <div style={{ fontSize:9, color:ft.accent, fontWeight:700, marginTop:4 }}>✓ ACTIVE</div>}
+            </button>
           ))}
-          <div style={{ background:t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:10, padding:"10px 13px", display:"flex", gap:7, alignItems:"center" }}>
-            <input placeholder="Send a message to your care team..." style={{ flex:1, background:"none", border:"none", color:t.text, fontSize:12, fontFamily:font, outline:"none" }} />
-            <button style={{ background:t.accentDim, border:`1px solid ${t.accent}`, borderRadius:7, padding:"5px 9px", color:t.accent, fontSize:11, cursor:"pointer", fontFamily:font, fontWeight:600 }}>Send</button>
+        </div>
+        <div style={{ marginTop:11, padding:"9px 11px", background:ft.cardBg2, borderRadius:9, border:`1px solid ${ft.border}` }}>
+          <div style={{ fontSize:10, color:ft.textMuted, marginBottom:7 }}>Current palette</div>
+          <div style={{ display:"flex", gap:5 }}>
+            {[ft.appBg, ft.cardBg, ft.accent, ft.danger, ft.warning, ft.success].map((color, i) => (
+              <div key={i} style={{ flex:1, height:20, borderRadius:5, background:color, border:`1px solid ${ft.border}` }}/>
+            ))}
           </div>
         </div>
-      )}
+      </div>
+      {/* Other settings */}
+      {[
+        { title:"Security", items:[["HIPAA Mode","Enabled ✓"],["PHI in Notifications","Disabled"],["Session Timeout","30 min"]] },
+        { title:"Notifications", items:[["Medication Reminders","On"],["Critical Alerts","On"],["Team Messages","On"]] },
+        { title:"Account", items:[["Role","Caregiver"],["Patient",patientName+", age "+patientAge],["Caregiver",caregiverName],["Care Team","Dr. Patel, Pharm. Chen"]] },
+      ].map(section => (
+        <div key={section.title} style={{ background:ft.cardBg, border:`1px solid ${ft.border}`, borderRadius:13, padding:13, marginBottom:11 }}>
+          <div style={{ fontSize:10, color:ft.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:9 }}>{section.title}</div>
+          {section.items.map(([k, v]) => (
+            <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"7px 0", borderBottom:`1px solid ${ft.border}` }}>
+              <span style={{ fontSize:12, color:ft.textSecondary }}>{k}</span>
+              <span style={{ fontSize:12, color:ft.success, fontWeight:500 }}>{v}</span>
+            </div>
+          ))}
+        </div>
+      ))}
     </div>
   );
 }
