@@ -234,7 +234,7 @@ export default function LessMedsFree() {
 
   const frameColor = theme === "dark" ? "#1a1a2e" : "#e8e8ec";
   const frameBorder = theme === "dark" ? "#333" : "#bbb";
-  const hideNav = ["paywall","patientInfo","fullApp","physicianCode"].includes(screen);
+  const hideNav = ["paywall","patientInfo","fullApp","physicianCode","onboarding"].includes(screen);
 
   return (
     <>
@@ -244,7 +244,7 @@ export default function LessMedsFree() {
           <div style={{ flex:1, background:t.bg, color:t.text, display:"flex", flexDirection:"column", overflow:"hidden", borderRadius:34, transition:"background 0.3s, color 0.3s" }}>
 
             {/* Status Bar */}
-            {screen !== "fullApp" && <div style={{ height:44, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 24px", flexShrink:0, borderRadius:"34px 34px 0 0", transition:"background 0.3s", position:"relative" }}>
+            {screen !== "fullApp" && screen !== "onboarding" && <div style={{ height:44, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 24px", flexShrink:0, borderRadius:"34px 34px 0 0", transition:"background 0.3s", position:"relative" }}>
               <span style={{ fontSize:12, fontWeight:600, color:t.text, fontFamily:font }}>9:41</span>
               <div style={{ width:120, height:28, background:theme==="dark"?"#111":"#ddd", borderRadius:14, position:"absolute", left:"50%", transform:"translateX(-50%)", transition:"background 0.3s" }} />
               <div style={{ display:"flex", gap:5, alignItems:"center" }}>
@@ -255,7 +255,7 @@ export default function LessMedsFree() {
             </div>}
 
             {/* Header */}
-            {screen !== "fullApp" && <header style={{ padding:"10px 18px", borderBottom:`1px solid ${t.border}`, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+            {screen !== "fullApp" && screen !== "onboarding" && <header style={{ padding:"10px 18px", borderBottom:`1px solid ${t.border}`, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
               <div style={{ display:"flex", alignItems:"center", gap:9 }}>
                 <div style={{ width:30, height:30, borderRadius:8, background:`linear-gradient(135deg, ${t.accent}, #0891b2)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15 }}>💊</div>
                 <div>
@@ -274,22 +274,23 @@ export default function LessMedsFree() {
             </header>}
 
             {/* Content */}
-            <div style={{ flex:1, overflowY:screen==="fullApp"?"hidden":"auto", overflowX:"hidden", paddingBottom:screen==="fullApp"?0:8, scrollbarWidth:"none", display:"flex", flexDirection:"column" }}>
+            <div style={{ flex:1, overflowY:(screen==="fullApp"||screen==="onboarding")?"hidden":"auto", overflowX:"hidden", paddingBottom:(screen==="fullApp"||screen==="onboarding")?0:8, scrollbarWidth:"none", display:"flex", flexDirection:"column" }}>
               {screen==="home" && <HomeScreen t={t} onStart={() => setScreen("checker")} onResources={() => setScreen("resources")} onCode={() => setScreen("physicianCode")} />}
               {screen==="physicianCode" && <PhysicianCodeScreen t={t} onBack={() => setScreen("home")} onVerified={data => {
                 setPlanType("monthly");
                 setPatientInfo({ firstName:data.patientFirstName, age:data.age, conditions:data.conditions, caregiverName:data.caregiverName||"Caregiver", relationship:data.relationship||"", email:data.email||"", meds:data.meds, ehrImported:true, physician:data.physician, clinic:data.clinic });
                 setResult({ score:data.score, flags:[], medCount:data.meds.length });
                 setMeds(data.meds.map(m => ({ id:m.id, name:m.name, dose:m.dose, freq:m.freq })));
-                setScreen("fullApp");
+                setScreen("onboarding");
               }} />}
               {screen==="checker" && <CheckerScreen t={t} meds={meds} setMeds={setMeds} onResult={r => { setResult(r); setScreen("results"); }} />}
               {screen==="results" && result && <ResultsScreen t={t} result={result} meds={meds} pricingTab={pricingTab} setPricingTab={setPricingTab} onBack={() => setScreen("checker")} onResources={() => setScreen("resources")} onPurchase={plan => { setPlanType(plan); setScreen("paywall"); }} />}
               {screen==="resources" && <ResourcesScreen t={t} activeVideo={activeVideo} setActiveVideo={setActiveVideo} />}
               {screen==="paywall" && <PaywallScreen t={t} planType={planType} onBack={() => setScreen("results")} onComplete={() => setScreen("patientInfo")} />}
-              {screen==="patientInfo" && <PatientInfoScreen t={t} planType={planType} prefillMeds={meds} existingInfo={patientInfo} onSubmit={info => { setPatientInfo(info); setScreen(planType==="monthly"?"fullApp":"submitted"); }} onBack={() => setScreen("paywall")} />}
+              {screen==="patientInfo" && <PatientInfoScreen t={t} planType={planType} prefillMeds={meds} existingInfo={patientInfo} onSubmit={info => { setPatientInfo(info); setScreen(planType==="monthly"?"onboarding":"submitted"); }} onBack={() => setScreen("paywall")} />}
               {screen==="submitted" && <SubmittedScreen t={t} patientInfo={patientInfo} assessmentReady={assessmentReady} onViewAssessment={() => { setScreen("assessment"); setAssessmentBadge(false); }} />}
               {screen==="assessment" && <AssessmentScreen t={t} patientInfo={patientInfo} result={result} meds={meds} assessmentReady={assessmentReady} onUpgrade={() => { setPlanType("monthly"); setScreen("paywall"); }} />}
+              {screen==="onboarding" && <OnboardingScreen t={t} patientInfo={patientInfo} onProceed={() => setScreen("fullApp")} />}
               {screen==="fullApp" && <FullAppScreen patientInfo={patientInfo} result={result} prefillMeds={meds} onLogout={() => { setPlanType(null); setPatientInfo(null); setResult(null); setMeds([]); setScreen("home"); }} />}
             </div>
 
@@ -313,7 +314,7 @@ export default function LessMedsFree() {
             )}
 
             {/* Home indicator */}
-            {screen !== "fullApp" && <div style={{ height:20, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:"0 0 34px 34px" }}>
+            {screen !== "fullApp" && screen !== "onboarding" && <div style={{ height:20, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:"0 0 34px 34px" }}>
               <div style={{ width:120, height:4, background:t.border, borderRadius:2 }} />
             </div>}
           </div>
@@ -1142,6 +1143,155 @@ function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady, onUpg
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── ONBOARDING (App Intro) ──────────────────────────────────────────────────
+function OnboardingScreen({ t, patientInfo, onProceed }) {
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [watched, setWatched] = useState(false);
+  const caregiverFirst = patientInfo?.caregiverName?.split(" ")[0] || "there";
+  const patientFirst = patientInfo?.firstName || "your loved one";
+
+  const features = [
+    { icon:"⬡", title:"Home Dashboard", desc:"Today's medications, risk alerts, and upcoming appointments at a glance." },
+    { icon:"◎", title:"Medication Tracker", desc:"Mark doses taken, view schedules, and see clinical flags from your pharmacist." },
+    { icon:"♥", title:"Symptom Logging", desc:"Report symptoms directly to your care team in real time." },
+    { icon:"◈", title:"Secure Messaging", desc:"Message Dr. Patel and Pharm. Chen end-to-end encrypted. No PHI in notifications." },
+    { icon:"▶", title:"Resource Center", desc:"Expert video talks from Dr. DeLon Canterbury on polypharmacy and deprescribing." },
+    { icon:"◍", title:"Settings", desc:"Switch themes, manage notifications, and access HIPAA security settings." },
+  ];
+
+  return (
+    <div style={{ flex:1, display:"flex", flexDirection:"column", background:t.bg, borderRadius:34, overflow:"hidden", fontFamily:font }}>
+
+      {/* Header */}
+      <div style={{ padding:"14px 20px 12px", background:t.navBg, borderBottom:`1px solid ${t.border}`, flexShrink:0, borderRadius:"34px 34px 0 0" }}>
+        <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+          <div style={{ width:30, height:30, borderRadius:8, background:`linear-gradient(135deg, ${t.accent}, #0891b2)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15 }}>💊</div>
+          <div>
+            <div style={{ fontFamily:serif, fontSize:16, fontWeight:400, letterSpacing:-0.3, lineHeight:1 }}>Less<span style={{ color:t.accent }}>Meds</span></div>
+            <div style={{ fontSize:8, color:t.textMuted, letterSpacing:1, textTransform:"uppercase", lineHeight:1.2 }}>Caregiver App · Welcome</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Scrollable content */}
+      <div style={{ flex:1, overflowY:"auto", scrollbarWidth:"none" }}>
+
+        {/* Hero greeting */}
+        <div style={{ padding:"22px 20px 18px", background:`linear-gradient(160deg, ${t.surfaceAlt} 0%, ${t.bg} 100%)`, borderBottom:`1px solid ${t.border}`, position:"relative", overflow:"hidden" }}>
+          <div style={{ position:"absolute", top:-30, right:-30, width:140, height:140, borderRadius:"50%", background:t.accentGlow, pointerEvents:"none" }} />
+          <div style={{ position:"relative" }}>
+            <div style={{ display:"inline-flex", alignItems:"center", background:t.successDim, borderRadius:20, padding:"4px 12px", marginBottom:11 }}>
+              <span style={{ fontSize:10, color:t.success, fontWeight:700, letterSpacing:1, textTransform:"uppercase" }}>✓ You're all set</span>
+            </div>
+            <h2 style={{ fontFamily:serif, fontSize:23, fontWeight:400, lineHeight:1.25, margin:"0 0 8px", letterSpacing:-0.3 }}>
+              Welcome, {caregiverFirst}.<br />
+              <em style={{ color:t.accent }}>Let's get you oriented.</em>
+            </h2>
+            <p style={{ color:t.textSub, fontSize:13, lineHeight:1.6, margin:0 }}>
+              You're now set up to monitor <strong style={{ color:t.text }}>{patientFirst}'s</strong> medications. Watch the short intro below, then tap <strong style={{ color:t.text }}>Enter the App</strong> when you're ready.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ padding:"18px 18px 24px" }}>
+
+          {/* Video card */}
+          <div style={{ background:t.surface, border:`2px solid ${watched ? t.success : t.accent}44`, borderRadius:16, overflow:"hidden", marginBottom:18, transition:"border-color 0.3s" }}>
+            {/* Video embed area */}
+            {!videoOpen ? (
+              <div
+                onClick={() => { setVideoOpen(true); setTimeout(() => setWatched(true), 3000); }}
+                style={{ height:172, background:`linear-gradient(135deg, ${t.surfaceAlt}, ${t.bg})`, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10, cursor:"pointer", position:"relative", overflow:"hidden" }}
+              >
+                {/* Decorative background rings */}
+                <div style={{ position:"absolute", width:180, height:180, borderRadius:"50%", border:`1px solid ${t.accent}22`, top:"50%", left:"50%", transform:"translate(-50%,-50%)" }} />
+                <div style={{ position:"absolute", width:130, height:130, borderRadius:"50%", border:`1px solid ${t.accent}33`, top:"50%", left:"50%", transform:"translate(-50%,-50%)" }} />
+
+                <div style={{ width:56, height:56, borderRadius:"50%", background:`linear-gradient(135deg, ${t.accent}, #0891b2)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, boxShadow:`0 8px 24px ${t.accentGlow}`, position:"relative" }}>▶</div>
+                <div style={{ textAlign:"center", position:"relative" }}>
+                  <div style={{ fontWeight:700, fontSize:14, color:t.text }}>How to use the LessMeds Caregiver App</div>
+                  <div style={{ color:t.textSub, fontSize:11, marginTop:3 }}>2 min · Dr. DeLon Canterbury</div>
+                </div>
+                <div style={{ position:"absolute", top:10, right:12, background:t.accentDim, borderRadius:6, padding:"3px 8px", fontSize:9, color:t.accent, fontWeight:700, letterSpacing:0.5 }}>RECOMMENDED</div>
+              </div>
+            ) : (
+              <div style={{ height:172, background:"#000", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
+                <div style={{ width:44, height:44, borderRadius:"50%", border:`2px solid ${t.accent}`, borderTopColor:"transparent", animation:"spin 0.8s linear infinite" }} />
+                <div style={{ color:"#fff", fontSize:12, opacity:0.7 }}>YouTube embed · Paste your video URL</div>
+                <div style={{ color:t.accent, fontSize:10 }}>youtube.com/embed/YOUR_VIDEO_ID</div>
+              </div>
+            )}
+
+            {/* Video meta */}
+            <div style={{ padding:"13px 15px", display:"flex", alignItems:"center", gap:11 }}>
+              <div style={{ width:38, height:38, borderRadius:"50%", background:t.accentDim, border:`2px solid ${t.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>👨‍⚕️</div>
+              <div style={{ flex:1 }}>
+                <div style={{ fontWeight:600, fontSize:12, color:t.text }}>Dr. DeLon Canterbury, MD</div>
+                <div style={{ color:t.textSub, fontSize:11, marginTop:1, lineHeight:1.4 }}>Geriatric medicine specialist · Walks you through every feature of the app and what to expect from your care team.</div>
+              </div>
+              {watched && <div style={{ color:t.success, fontSize:18, flexShrink:0 }}>✓</div>}
+            </div>
+          </div>
+
+          {/* Feature overview */}
+          <div style={{ fontSize:10, color:t.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>What's inside the app</div>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:20 }}>
+            {features.map(f => (
+              <div key={f.title} style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:12, padding:"12px 11px" }}>
+                <div style={{ fontSize:20, marginBottom:6 }}>{f.icon}</div>
+                <div style={{ fontWeight:700, fontSize:12, color:t.text, marginBottom:3 }}>{f.title}</div>
+                <div style={{ fontSize:10, color:t.textSub, lineHeight:1.5 }}>{f.desc}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tips */}
+          <div style={{ background:t.surface, border:`1px solid ${t.accent}33`, borderRadius:13, padding:"13px 14px", marginBottom:20 }}>
+            <div style={{ fontSize:10, color:t.accent, fontWeight:700, letterSpacing:0.8, textTransform:"uppercase", marginBottom:10 }}>Quick tips</div>
+            {[
+              ["Log symptoms promptly", "The sooner you report, the faster your care team can respond."],
+              ["Check alerts daily", "Red alerts need attention today. Yellow alerts this week."],
+              ["Message freely", "Pharm. Chen checks messages every business day."],
+            ].map(([tip, sub]) => (
+              <div key={tip} style={{ display:"flex", gap:9, alignItems:"flex-start", marginBottom:9 }}>
+                <span style={{ color:t.accent, fontSize:14, flexShrink:0, marginTop:1 }}>›</span>
+                <div>
+                  <div style={{ fontWeight:600, fontSize:12, color:t.text }}>{tip}</div>
+                  <div style={{ fontSize:11, color:t.textSub, marginTop:1 }}>{sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA */}
+          <Btn t={t} onClick={onProceed}>
+            Enter the App →
+          </Btn>
+          {!watched && (
+            <p style={{ color:t.textMuted, fontSize:11, textAlign:"center", marginTop:8, lineHeight:1.5 }}>
+              We recommend watching the intro first —{" "}
+              <span onClick={() => { setVideoOpen(true); setTimeout(() => setWatched(true), 3000); }} style={{ color:t.accent, cursor:"pointer", textDecoration:"underline" }}>
+                watch now
+              </span>{" "}or{" "}
+              <span onClick={onProceed} style={{ color:t.textSub, cursor:"pointer", textDecoration:"underline" }}>
+                skip for now
+              </span>
+            </p>
+          )}
+          {watched && (
+            <p style={{ color:t.success, fontSize:11, textAlign:"center", marginTop:8 }}>✓ Intro watched — you're ready to go!</p>
+          )}
+        </div>
+      </div>
+
+      {/* Home indicator */}
+      <div style={{ height:20, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:"0 0 34px 34px" }}>
+        <div style={{ width:120, height:4, background:t.border, borderRadius:2 }} />
+      </div>
     </div>
   );
 }
