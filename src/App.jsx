@@ -161,9 +161,9 @@ export default function LessMedsFree() {
               {screen==="results" && result && <ResultsScreen t={t} result={result} meds={meds} pricingTab={pricingTab} setPricingTab={setPricingTab} onBack={() => setScreen("checker")} onResources={() => setScreen("resources")} onPurchase={plan => { setPlanType(plan); setScreen("paywall"); }} />}
               {screen==="resources" && <ResourcesScreen t={t} activeVideo={activeVideo} setActiveVideo={setActiveVideo} />}
               {screen==="paywall" && <PaywallScreen t={t} planType={planType} onBack={() => setScreen("results")} onComplete={() => setScreen("patientInfo")} />}
-              {screen==="patientInfo" && <PatientInfoScreen t={t} planType={planType} prefillMeds={meds} onSubmit={info => { setPatientInfo(info); setScreen(planType==="monthly"?"fullApp":"submitted"); }} onBack={() => setScreen("paywall")} />}
+              {screen==="patientInfo" && <PatientInfoScreen t={t} planType={planType} prefillMeds={meds} existingInfo={patientInfo} onSubmit={info => { setPatientInfo(info); setScreen(planType==="monthly"?"fullApp":"submitted"); }} onBack={() => setScreen("paywall")} />}
               {screen==="submitted" && <SubmittedScreen t={t} patientInfo={patientInfo} assessmentReady={assessmentReady} onViewAssessment={() => { setScreen("assessment"); setAssessmentBadge(false); }} />}
-              {screen==="assessment" && <AssessmentScreen t={t} patientInfo={patientInfo} result={result} meds={meds} assessmentReady={assessmentReady} />}
+              {screen==="assessment" && <AssessmentScreen t={t} patientInfo={patientInfo} result={result} meds={meds} assessmentReady={assessmentReady} onUpgrade={() => { setPlanType("monthly"); setScreen("paywall"); }} />}
               {screen==="fullApp" && <FullAppScreen patientInfo={patientInfo} result={result} prefillMeds={meds} onLogout={() => { setPlanType(null); setPatientInfo(null); setResult(null); setMeds([]); setScreen("home"); }} />}
             </div>
 
@@ -717,10 +717,10 @@ function PaywallScreen({ t, planType, onBack, onComplete }) {
 }
 
 // ─── PATIENT INFO (3-step) ────────────────────────────────────────────────────
-function PatientInfoScreen({ t, planType, prefillMeds, onSubmit, onBack }) {
+function PatientInfoScreen({ t, planType, prefillMeds, existingInfo, onSubmit, onBack }) {
   const [step, setStep] = useState(1);
-  const [firstName, setFirstName] = useState(""); const [age, setAge] = useState(""); const [conditions, setConditions] = useState([]);
-  const [caregiverName, setCaregiverName] = useState(""); const [relationship, setRelationship] = useState(""); const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState(existingInfo?.firstName||""); const [age, setAge] = useState(existingInfo?.age||""); const [conditions, setConditions] = useState(existingInfo?.conditions||[]);
+  const [caregiverName, setCaregiverName] = useState(existingInfo?.caregiverName||""); const [relationship, setRelationship] = useState(existingInfo?.relationship||""); const [email, setEmail] = useState(existingInfo?.email||"");
   const iS = inputStyle(t);
   const toggleC = c => setConditions(p => p.includes(c) ? p.filter(x=>x!==c) : [...p,c]);
   const canSubmit = caregiverName.trim() && relationship && email.includes("@");
@@ -856,7 +856,9 @@ function SubmittedScreen({ t, patientInfo, assessmentReady, onViewAssessment }) 
 }
 
 // ─── ASSESSMENT ───────────────────────────────────────────────────────────────
-function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady }) {
+function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady, onUpgrade }) {
+  const [upsellDismissed, setUpsellDismissed] = useState(false);
+
   if (!assessmentReady) {
     return (
       <div style={{ padding:"40px 18px", textAlign:"center" }}>
@@ -875,6 +877,14 @@ function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady }) {
     { drug:usedMeds[1]?.name||"Lisinopril", action:"Monitor", priority:"medium", note:"Consider electrolyte panel at next visit. Potassium levels should be checked given current combination." },
     { drug:usedMeds[2]?.name||"Aspirin 81mg", action:"Deprescribe", priority:"high", note:"Risk-benefit ratio unfavorable given current anticoagulant. Recommend discontinuation after physician review." },
   ];
+
+  // Determine urgency framing based on risk level
+  const upsellUrgency = risk.color === "danger"
+    ? { icon:"🔴", headline:"High risk detected — ongoing monitoring is critical", sub:"One review isn't enough at this risk level. Your pharmacist flagged issues that need to be tracked monthly." }
+    : risk.color === "warning"
+    ? { icon:"🟡", headline:`${result?.flags?.length||1} concern${result?.flags?.length!==1?"s":""} flagged — don't let them go unchecked`, sub:"Medication risks can escalate quickly. Stay ahead of it with monthly pharmacist oversight." }
+    : { icon:"✅", headline:"Good news — and a reason to stay proactive", sub:"Low risk now doesn't mean low risk forever. Monthly monitoring keeps it that way." };
+
   return (
     <div style={{ padding:"20px 18px", paddingBottom:24 }}>
       <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:14 }}>
@@ -884,6 +894,7 @@ function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady }) {
         </div>
         <div style={{ background:t.successDim, border:`1px solid ${t.success}`, borderRadius:8, padding:"4px 8px", color:t.success, fontSize:10, fontWeight:700 }}>✓ Complete</div>
       </div>
+
       {/* Score card */}
       <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:13, padding:"14px", marginBottom:14, display:"flex", gap:12, alignItems:"center" }}>
         <svg width="68" height="68" viewBox="0 0 100 100" style={{ flexShrink:0 }}>
@@ -898,6 +909,7 @@ function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady }) {
           <div style={{ color:t.textMuted, fontSize:11, marginTop:1 }}>Completed {new Date().toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
         </div>
       </div>
+
       {/* Summary */}
       <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:13, padding:"13px 14px", marginBottom:14 }}>
         <SectionLabel t={t}>Clinical Summary</SectionLabel>
@@ -905,6 +917,7 @@ function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady }) {
           {patientInfo?.firstName}'s medication regimen shows {risk.label.toLowerCase()} for polypharmacy-related adverse events.{result?.flags?.length>0?` ${result.flags.length} risk factor${result.flags.length!==1?"s":""} were identified, including potential drug interactions.`:" No major drug interactions were identified."} We recommend discussing the deprescribing opportunities below with the prescribing physician.
         </p>
       </div>
+
       {/* Recs */}
       <SectionLabel t={t}>Pharmacist Recommendations</SectionLabel>
       {recs.map((rec,i) => {
@@ -919,6 +932,7 @@ function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady }) {
           </div>
         );
       })}
+
       {/* Pharmacist note */}
       <div style={{ background:t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:12, padding:"13px", marginTop:4, marginBottom:14 }}>
         <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:6 }}>
@@ -929,10 +943,72 @@ function AssessmentScreen({ t, patientInfo, result, meds, assessmentReady }) {
           "I've reviewed {patientInfo?.firstName}'s full medication list. Please bring this report to your next physician appointment for a shared decision-making discussion about these recommendations."
         </p>
       </div>
-      <div style={{ background:t.accentDim, border:`1px solid ${t.accent}33`, borderRadius:10, padding:"11px 13px", display:"flex", gap:7, alignItems:"center" }}>
+
+      {/* Email confirmation */}
+      <div style={{ background:t.accentDim, border:`1px solid ${t.accent}33`, borderRadius:10, padding:"11px 13px", display:"flex", gap:7, alignItems:"center", marginBottom:16 }}>
         <span style={{ fontSize:15 }}>📧</span>
         <div><div style={{ color:t.accent, fontWeight:600, fontSize:12 }}>Full report emailed</div><div style={{ color:t.textSub, fontSize:11, marginTop:1 }}>Sent to {patientInfo?.email} — printable PDF included.</div></div>
       </div>
+
+      {/* ─── Monthly Upsell ─────────────────────────────────────────── */}
+      {!upsellDismissed && (
+        <div style={{ background:`linear-gradient(135deg, ${t.surfaceAlt}, ${t.surface})`, border:`2px solid ${t.accent}55`, borderRadius:16, padding:"18px 16px", marginBottom:10, position:"relative", overflow:"hidden" }}>
+          {/* Accent top bar */}
+          <div style={{ position:"absolute", top:0, left:0, right:0, height:3, background:`linear-gradient(90deg, ${t.accent}, #0891b2, transparent)` }} />
+
+          {/* Dismiss */}
+          <button onClick={() => setUpsellDismissed(true)} style={{ position:"absolute", top:10, right:12, background:"none", border:"none", color:t.textMuted, fontSize:16, cursor:"pointer", lineHeight:1 }}>×</button>
+
+          {/* Risk-aware headline */}
+          <div style={{ display:"flex", gap:8, alignItems:"flex-start", marginBottom:12 }}>
+            <span style={{ fontSize:20, flexShrink:0 }}>{upsellUrgency.icon}</span>
+            <div>
+              <div style={{ fontWeight:700, fontSize:14, color:t.text, lineHeight:1.3, marginBottom:3, paddingRight:20 }}>{upsellUrgency.headline}</div>
+              <div style={{ color:t.textSub, fontSize:12, lineHeight:1.5 }}>{upsellUrgency.sub}</div>
+            </div>
+          </div>
+
+          {/* What you get */}
+          <div style={{ background:t.bg, borderRadius:11, padding:"11px 13px", marginBottom:13 }}>
+            <div style={{ fontSize:10, color:t.textMuted, fontWeight:700, letterSpacing:0.8, textTransform:"uppercase", marginBottom:9 }}>Monthly Plan includes</div>
+            {[
+              ["📊","Monthly risk score updates","Track if the score improves after changes"],
+              ["💬","Direct pharmacist messaging","Ask questions between appointments"],
+              ["🔔","Medication change alerts","Know the moment something needs attention"],
+              ["📱","Full caregiver app","Home, Meds, Symptoms, Messages in one place"],
+              ["🩺","Ongoing care coordination","Pharmacist communicates directly with physician"],
+            ].map(([icon, title, sub]) => (
+              <div key={title} style={{ display:"flex", gap:9, alignItems:"flex-start", marginBottom:8 }}>
+                <span style={{ fontSize:14, flexShrink:0 }}>{icon}</span>
+                <div>
+                  <div style={{ fontSize:12, fontWeight:600, color:t.text }}>{title}</div>
+                  <div style={{ fontSize:11, color:t.textSub, marginTop:1 }}>{sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Pricing + CTA */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:11 }}>
+            <div>
+              <span style={{ fontFamily:serif, fontSize:28, fontWeight:400, color:t.text }}>$29</span>
+              <span style={{ color:t.textSub, fontSize:12 }}>/month</span>
+              <div style={{ fontSize:10, color:t.textMuted, marginTop:1 }}>Cancel anytime · No contracts</div>
+            </div>
+            <div style={{ background:t.successDim, border:`1px solid ${t.success}44`, borderRadius:8, padding:"5px 10px", textAlign:"center" }}>
+              <div style={{ fontSize:9, color:t.success, fontWeight:700, letterSpacing:0.5 }}>SAVE vs repeat</div>
+              <div style={{ fontSize:11, color:t.success, fontWeight:600, marginTop:1 }}>one-time reviews</div>
+            </div>
+          </div>
+
+          <Btn t={t} onClick={onUpgrade}>
+            Upgrade to Monthly — Start Today →
+          </Btn>
+          <p style={{ color:t.textMuted, fontSize:11, textAlign:"center", marginTop:7, lineHeight:1.5 }}>
+            Your existing assessment and medications carry over automatically.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
