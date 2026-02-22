@@ -28,22 +28,148 @@ const font = "'DM Sans', sans-serif";
 const serif = "'DM Serif Display', serif";
 
 // ─── Risk Algorithm ───────────────────────────────────────────────────────────
-const HIGH_RISK_DRUGS = ["warfarin","digoxin","amiodarone","methotrexate","lithium","opioid","oxycodone","hydrocodone","morphine","fentanyl"];
-const INTERACTION_PAIRS = [["warfarin","aspirin"],["warfarin","ibuprofen"],["metformin","contrast"],["lisinopril","potassium"],["digoxin","amiodarone"],["lithium","ibuprofen"]];
+// High-risk medications (each adds 7 pts)
+const HIGH_RISK_DRUGS = [
+  "warfarin","digoxin","amiodarone","methotrexate","lithium",
+  "oxycodone","hydrocodone","morphine","fentanyl","tramadol",
+  "alprazolam","lorazepam","clonazepam","diazepam","zolpidem",
+  "prednisone","prednisolone","dexamethasone",
+  "insulin","glargine","glipizide","glyburide","glimepiride",
+  "spironolactone","furosemide","torsemide","bumetanide",
+  "quetiapine","haloperidol","risperidone","olanzapine","clozapine",
+  "amitriptyline","nortriptyline","imipramine","doxepin",
+  "carbamazepine","valproate","phenytoin","phenobarbital",
+  "cyclosporine","tacrolimus","sirolimus",
+  "methotrexate","azathioprine","mercaptopurine",
+  "colchicine","hydroxychloroquine",
+  "nitroglycerin","isosorbide",
+];
+
+// Drug interaction pairs (each adds 10 pts + flag)
+const INTERACTION_PAIRS = [
+  // Anticoagulant interactions
+  ["warfarin","aspirin"], ["warfarin","ibuprofen"], ["warfarin","naproxen"],
+  ["warfarin","meloxicam"], ["warfarin","clopidogrel"], ["warfarin","amiodarone"],
+  ["warfarin","fluconazole"], ["warfarin","metronidazole"], ["warfarin","ciprofloxacin"],
+  // ACE inhibitor interactions
+  ["lisinopril","potassium"], ["lisinopril","spironolactone"], ["lisinopril","losartan"],
+  ["enalapril","potassium"], ["enalapril","spironolactone"],
+  ["benazepril","potassium"],
+  // NSAID interactions
+  ["ibuprofen","lisinopril"], ["ibuprofen","metformin"], ["ibuprofen","lithium"],
+  ["naproxen","lisinopril"], ["meloxicam","lisinopril"],
+  ["ibuprofen","prednisone"], ["naproxen","prednisone"],
+  // Statin interactions
+  ["atorvastatin","amiodarone"], ["simvastatin","amiodarone"],
+  ["simvastatin","diltiazem"], ["simvastatin","amlodipine"],
+  ["lovastatin","amiodarone"],
+  // Cardiac interactions
+  ["digoxin","amiodarone"], ["digoxin","furosemide"], ["digoxin","spironolactone"],
+  ["metoprolol","amiodarone"], ["atenolol","amiodarone"],
+  ["diltiazem","metoprolol"], ["verapamil","metoprolol"],
+  // Diabetes interactions
+  ["metformin","furosemide"], ["glipizide","fluconazole"],
+  ["insulin","metoprolol"], ["insulin","lisinopril"],
+  // CNS / Sedation combinations
+  ["zolpidem","lorazepam"], ["zolpidem","alprazolam"],
+  ["tramadol","sertraline"], ["tramadol","fluoxetine"], ["tramadol","duloxetine"],
+  ["oxycodone","lorazepam"], ["oxycodone","alprazolam"], ["oxycodone","zolpidem"],
+  ["hydrocodone","lorazepam"], ["morphine","lorazepam"],
+  ["amitriptyline","tramadol"], ["amitriptyline","fluoxetine"],
+  // Antibiotics
+  ["ciprofloxacin","metformin"], ["metronidazole","warfarin"],
+  ["clarithromycin","simvastatin"], ["clarithromycin","atorvastatin"],
+  // Thyroid
+  ["levothyroxine","calcium"], ["levothyroxine","omeprazole"],
+  // Mood stabilizers
+  ["lithium","ibuprofen"], ["lithium","naproxen"], ["lithium","furosemide"],
+  ["lithium","lisinopril"],
+  // Corticosteroids
+  ["prednisone","aspirin"], ["prednisone","warfarin"],
+];
+
+// Category-based scoring (adds points when drug class detected)
+const DRUG_CATEGORIES = [
+  { pattern: /metformin|glipizide|glyburide|glimepiride|insulin|sitagliptin|jardiance|ozempic|trulicity/i, label: "Diabetes medication", pts: 5 },
+  { pattern: /lisinopril|enalapril|benazepril|ramipril|losartan|valsartan|olmesartan|irbesartan|amlodipine|metoprolol|atenolol|carvedilol|bisoprolol|diltiazem|verapamil|hydrochlorothiazide|furosemide|spironolactone/i, label: "Cardiovascular medication", pts: 5 },
+  { pattern: /sertraline|fluoxetine|escitalopram|citalopram|paroxetine|venlafaxine|duloxetine|bupropion|amitriptyline|nortriptyline|mirtazapine|trazodone/i, label: "Psychiatric medication", pts: 5 },
+  { pattern: /alprazolam|lorazepam|clonazepam|diazepam|temazepam|zolpidem|eszopiclone/i, label: "Sedative/hypnotic", pts: 8 },
+  { pattern: /gabapentin|pregabalin|carbamazepine|valproate|lamotrigine|levetiracetam|phenytoin/i, label: "Neurological medication", pts: 5 },
+  { pattern: /atorvastatin|simvastatin|rosuvastatin|pravastatin|lovastatin|pitavastatin/i, label: "Statin", pts: 3 },
+  { pattern: /omeprazole|pantoprazole|esomeprazole|lansoprazole|rabeprazole/i, label: "Proton pump inhibitor", pts: 4 },
+  { pattern: /prednisone|prednisolone|dexamethasone|methylprednisolone|hydrocortisone/i, label: "Corticosteroid", pts: 6 },
+  { pattern: /oxycodone|hydrocodone|morphine|fentanyl|tramadol|codeine|hydromorphone/i, label: "Opioid analgesic", pts: 10 },
+  { pattern: /levothyroxine|liothyronine|methimazole|propylthiouracil/i, label: "Thyroid medication", pts: 4 },
+  { pattern: /alendronate|risedronate|zoledronic|ibandronate|denosumab/i, label: "Bone medication", pts: 3 },
+  { pattern: /tamsulosin|finasteride|dutasteride|sildenafil|tadalafil/i, label: "Urological medication", pts: 3 },
+  { pattern: /allopurinol|colchicine|febuxostat/i, label: "Gout medication", pts: 4 },
+  { pattern: /quetiapine|haloperidol|risperidone|olanzapine|aripiprazole|ziprasidone/i, label: "Antipsychotic", pts: 8 },
+  { pattern: /warfarin|apixaban|rivaroxaban|dabigatran|clopidogrel|prasugrel|ticagrelor/i, label: "Anticoagulant/antiplatelet", pts: 8 },
+];
+
 const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 function computeScore(meds) {
   let score = 0; const flags = [];
   const names = meds.map(m => m.name.toLowerCase());
-  if (meds.length >= 10) { score += 30; flags.push({ label: "High Polypharmacy", detail: `${meds.length} medications`, type: "danger" }); }
-  else if (meds.length >= 5) { score += 15; flags.push({ label: "Polypharmacy", detail: `${meds.length} medications`, type: "warning" }); }
-  let ix = 0;
+  const allText = names.join(" ");
+
+  // 1. Base score per medication count (realistic baseline)
+  if (meds.length === 1) { score += 5; }
+  else if (meds.length === 2) { score += 10; }
+  else if (meds.length === 3) { score += 16; }
+  else if (meds.length === 4) { score += 22; }
+  else if (meds.length >= 5 && meds.length < 8) {
+    score += 30;
+    flags.push({ label: "Polypharmacy", detail: `${meds.length} medications`, type: "warning" });
+  } else if (meds.length >= 8 && meds.length < 10) {
+    score += 42;
+    flags.push({ label: "Polypharmacy", detail: `${meds.length} medications`, type: "warning" });
+  } else if (meds.length >= 10) {
+    score += 55;
+    flags.push({ label: "High Polypharmacy", detail: `${meds.length} medications`, type: "danger" });
+  }
+
+  // 2. Drug interaction pairs
+  let ixCount = 0;
   INTERACTION_PAIRS.forEach(([a, b]) => {
-    if (names.some(n => n.includes(a)) && names.some(n => n.includes(b))) { ix++; flags.push({ label: "Drug Interaction", detail: `${cap(a)} + ${cap(b)}`, type: "danger" }); }
+    if (names.some(n => n.includes(a)) && names.some(n => n.includes(b))) {
+      if (ixCount < 4) { // cap flags at 4 to avoid overwhelming UI
+        flags.push({ label: "Drug Interaction", detail: `${cap(a)} + ${cap(b)}`, type: "danger" });
+      }
+      ixCount++;
+      score += 12;
+    }
   });
-  score += Math.min(ix * 10, 30);
-  HIGH_RISK_DRUGS.forEach(d => { if (names.some(n => n.includes(d))) { score += 7; flags.push({ label: "High-Risk Medication", detail: cap(d), type: "warning" }); } });
-  return { score: Math.min(score, 100), flags };
+
+  // 3. High-risk individual drugs
+  HIGH_RISK_DRUGS.forEach(d => {
+    if (names.some(n => n.includes(d))) {
+      score += 8;
+      flags.push({ label: "High-Risk Medication", detail: cap(d), type: "warning" });
+    }
+  });
+
+  // 4. Drug category scoring (catches drugs not in exact lists)
+  const detectedCategories = new Set();
+  DRUG_CATEGORIES.forEach(({ pattern, label, pts }) => {
+    if (!detectedCategories.has(label) && meds.some(m => pattern.test(m.name))) {
+      detectedCategories.add(label);
+      score += pts;
+      // Only flag clinically notable categories
+      if (pts >= 6) {
+        flags.push({ label, detail: "Review recommended", type: pts >= 8 ? "danger" : "warning" });
+      }
+    }
+  });
+
+  // 5. Age-agnostic multi-class penalty (4+ drug categories = additional risk)
+  if (detectedCategories.size >= 4) {
+    score += 10;
+    flags.push({ label: "Multi-class Regimen", detail: `${detectedCategories.size} drug classes`, type: "warning" });
+  }
+
+  return { score: Math.min(Math.round(score), 100), flags };
 }
 
 const riskLevel = s => s <= 40 ? { label: "Low Risk", color: "success", emoji: "🟢" } : s <= 70 ? { label: "Moderate Risk", color: "warning", emoji: "🟡" } : { label: "High Risk", color: "danger", emoji: "🔴" };
