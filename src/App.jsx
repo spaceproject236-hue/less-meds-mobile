@@ -111,6 +111,31 @@ const MOCK_APPOINTMENTS = [
 
 const SYMPTOM_OPTIONS = ["Dizziness","Nausea","Fatigue","Shortness of breath","Swelling","Confusion","Headache","Chest pain","Rash","Other"];
 
+// ─── Mobile Logo Component (Option A) ────────────────────────────────────────
+function MobileLogoA({ theme = "dark" }) {
+  const isLight = theme === "light";
+  const capsuleLeft = isLight ? "#0369a1" : "#06b6d4";
+  const capsuleRight = isLight ? "#0ea5e9" : "#0e7490";
+  const arrowColor = isLight ? "#0369a1" : "#06b6d4";
+  const dashColor = isLight ? "#f8fafc" : "#060b14";
+  const textPrimary = isLight ? "#0f172a" : "#f1f5f9";
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+      <svg width="28" height="34" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 13 C3 8 6 4 10 4 L14 4 L14 22 L10 22 C6 22 3 18 3 13 Z" fill={capsuleLeft}/>
+        <path d="M14 4 L18 4 C22 4 25 8 25 13 C25 18 22 22 18 22 L14 22 Z" fill={capsuleRight}/>
+        <line x1="14" y1="4" x2="14" y2="22" stroke={dashColor} strokeWidth="1.2" strokeDasharray="1.5 1.5"/>
+        <path d="M14 25 L14 29" stroke={arrowColor} strokeWidth="1.8" strokeLinecap="round"/>
+        <path d="M10 27 L14 32 L18 27" stroke={arrowColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      </svg>
+      <div>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:14, color:textPrimary, letterSpacing:"-0.3px", lineHeight:1 }}>Less</div>
+        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:300, fontSize:10, color:arrowColor, letterSpacing:"2px", lineHeight:1, marginTop:1 }}>MEDS</div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function CaregiverApp() {
   const [themeName, setThemeName] = useState("dark");
@@ -163,7 +188,7 @@ export default function CaregiverApp() {
   return (
     <ThemeContext.Provider value={t}>
       <div style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:"100vh", background: themeName==="dark"?"#030712":"#e2e8f0", fontFamily:"'DM Sans', sans-serif", transition:"background 0.3s" }}>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono&display=swap" rel="stylesheet"/>
+        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Outfit:wght@300;400;700;800&display=swap" rel="stylesheet"/>
 
         {/* Phone Frame */}
         <div style={{ width:375, height:780, background:t.appBg, borderRadius:44, overflow:"hidden",
@@ -185,15 +210,13 @@ export default function CaregiverApp() {
           {/* Header */}
           <div style={{ padding:"10px 20px 14px", background:t.headerBg, borderBottom:`1px solid ${t.border}`, flexShrink:0, boxShadow: themeName==="light"?"0 1px 4px rgba(0,0,0,0.06)":"none" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <div>
-                <div style={{ fontSize:11, color:t.textMuted, letterSpacing:1, textTransform:"uppercase" }}>LessMeds Caregiver</div>
-                <div style={{ fontSize:16, fontWeight:700, color:t.textPrimary, marginTop:1 }}>Eleanor Whitmore</div>
-              </div>
+              <MobileLogoA theme={themeName} />
               <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <div style={{ width:8, height:8, borderRadius:"50%", background:score>=71?t.danger:score>=41?t.warning:t.success }}/>
                 <div style={{ fontSize:13, fontWeight:700, color:score>=71?t.danger:score>=41?t.warning:t.success }}>Score: {score}</div>
               </div>
             </div>
+            <div style={{ fontSize:13, color:t.textSecondary, marginTop:4 }}>Eleanor Whitmore · Age 78</div>
           </div>
 
           {/* Content */}
@@ -438,11 +461,15 @@ function MobileSettings({ themeName, setThemeName }) {
         <div style={{ fontSize:11, color:t.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>Display Theme</div>
         <div style={{ display:"flex", gap:10 }}>
           {Object.entries(THEMES).map(([key, th]) => (
-            <button key={key} onClick={()=>setThemeName(key)} style={{ flex:1, padding:"12px 10px", borderRadius:12,
+            <button key={key} onClick={()=>setThemeName(key)} style={{ flex:1, padding:"14px 10px", borderRadius:12,
               border:`2px solid ${themeName===key?t.accent:t.border}`,
               background:themeName===key?t.accentBg:t.cardBg2,
               cursor:"pointer", fontFamily:"'DM Sans',sans-serif", textAlign:"center", transition:"all 0.2s" }}>
-              <div style={{ fontSize:22, marginBottom:6 }}>{key==="dark"?"🌙":"☀️"}</div>
+              <div style={{ display:"flex", justifyContent:"center", marginBottom:8 }}>
+                <div style={{ padding:"8px 10px", borderRadius:8, background: key==="dark" ? "#0a1628" : "#f0f9ff", border:`1px solid ${t.border}` }}>
+                  <MobileLogoA theme={key} />
+                </div>
+              </div>
               <div style={{ fontSize:11, fontWeight:700, color:t.textPrimary }}>{key==="dark"?"Dark":"Light"}</div>
               <div style={{ fontSize:9, color:t.textMuted, marginTop:2, lineHeight:1.3 }}>{key==="dark"?"High contrast":"Clinical white"}</div>
               {themeName===key && <div style={{ fontSize:9, color:t.accent, fontWeight:700, marginTop:4 }}>✓ ACTIVE</div>}
