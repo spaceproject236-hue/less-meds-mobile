@@ -1,522 +1,965 @@
-import { useState, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 
-// ─── Themes ───────────────────────────────────────────────────────────────────
-const THEMES = {
+// ─── Theme ────────────────────────────────────────────────────────────────────
+const ThemeContext = createContext();
+const useTheme = () => useContext(ThemeContext);
+
+const themes = {
   dark: {
-    name: "Accessibility Dark",
-    appBg: "#060b14",
-    headerBg: "#0a1628",
-    cardBg: "#0a1628",
-    cardBg2: "#0f172a",
-    inputBg: "#0f172a",
-    border: "#1e293b",
-    textPrimary: "#f1f5f9",
-    textSecondary: "#94a3b8",
-    textMuted: "#64748b",
+    bg: "#080f1a",
+    surface: "#0d1829",
+    surfaceAlt: "#111f33",
+    border: "#1e3a5f",
+    borderLight: "#162d4a",
+    text: "#e8f4fd",
+    textSub: "#7eb3d4",
+    textMuted: "#3d6a8a",
     accent: "#06b6d4",
-    accentBg: "rgba(6,182,212,0.15)",
-    success: "#22c55e",
-    successBg: "#052e16",
+    accentDim: "#0e4a5c",
+    accentGlow: "rgba(6,182,212,0.15)",
+    success: "#10b981",
+    successDim: "#064e3b",
     warning: "#f59e0b",
-    warningBg: "#1c1200",
+    warningDim: "#451a03",
     danger: "#ef4444",
-    dangerBg: "#1c0002",
-    dangerText: "#fca5a5",
-    warningText: "#fcd34d",
-    successText: "#86efac",
-    navBg: "#0a1628",
-    navBorder: "#1e293b",
-    navActive: "#06b6d4",
-    navInactive: "#64748b",
-    msgOut: "#06b6d4",
-    msgOutText: "#000000",
-    msgIn: "#1e293b",
-    msgInText: "#f1f5f9",
-    pillBg: "#1e293b",
-    pillText: "#94a3b8",
-    statusBar: "#060b14",
-    progressTrack: "#1e293b",
-    btnPrimary: "#06b6d4",
-    btnPrimaryText: "#000000",
+    dangerDim: "#450a0a",
+    cardBg: "#0d1829",
+    navBg: "#060d18",
+    pillBg: "#0e2a40",
   },
   light: {
-    name: "Clinical Light",
-    appBg: "#f0f4f8",
-    headerBg: "#ffffff",
-    cardBg: "#ffffff",
-    cardBg2: "#f8fafc",
-    inputBg: "#f8fafc",
-    border: "#e2e8f0",
-    textPrimary: "#0f172a",
-    textSecondary: "#475569",
-    textMuted: "#94a3b8",
+    bg: "#f0f6ff",
+    surface: "#ffffff",
+    surfaceAlt: "#f8faff",
+    border: "#c7ddf5",
+    borderLight: "#daeaf8",
+    text: "#0a1929",
+    textSub: "#3a6a9a",
+    textMuted: "#8aabcc",
     accent: "#0369a1",
-    accentBg: "rgba(3,105,161,0.1)",
-    success: "#16a34a",
-    successBg: "#f0fdf4",
+    accentDim: "#dbeafe",
+    accentGlow: "rgba(3,105,161,0.10)",
+    success: "#059669",
+    successDim: "#d1fae5",
     warning: "#d97706",
-    warningBg: "#fffbeb",
+    warningDim: "#fef3c7",
     danger: "#dc2626",
-    dangerBg: "#fef2f2",
-    dangerText: "#dc2626",
-    warningText: "#b45309",
-    successText: "#15803d",
+    dangerDim: "#fee2e2",
+    cardBg: "#ffffff",
     navBg: "#ffffff",
-    navBorder: "#e2e8f0",
-    navActive: "#0369a1",
-    navInactive: "#94a3b8",
-    msgOut: "#0369a1",
-    msgOutText: "#ffffff",
-    msgIn: "#f1f5f9",
-    msgInText: "#0f172a",
-    pillBg: "#f1f5f9",
-    pillText: "#475569",
-    statusBar: "#ffffff",
-    progressTrack: "#e2e8f0",
-    btnPrimary: "#0369a1",
-    btnPrimaryText: "#ffffff",
+    pillBg: "#e0f0ff",
   },
 };
 
-const ThemeContext = createContext(THEMES.dark);
-const useTheme = () => useContext(ThemeContext);
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const MOCK_MEDICATIONS = [
-  { id:"m1", name:"Warfarin", dose:"5mg", time:"8:00 AM", taken:true, color:"#ef4444" },
-  { id:"m2", name:"Metformin", dose:"1000mg", time:"8:00 AM", taken:true, color:"#3b82f6" },
-  { id:"m3", name:"Lisinopril", dose:"10mg", time:"8:00 AM", taken:false, color:"#8b5cf6" },
-  { id:"m4", name:"Aspirin", dose:"81mg", time:"12:00 PM", taken:false, color:"#f59e0b" },
-  { id:"m5", name:"Atorvastatin", dose:"40mg", time:"8:00 PM", taken:false, color:"#06b6d4" },
-  { id:"m6", name:"Potassium", dose:"20mEq", time:"8:00 AM", taken:false, color:"#22c55e" },
-  { id:"m7", name:"Alendronate", dose:"70mg", time:"Monday AM", taken:false, color:"#ec4899" },
+// ─── Risk Algorithm (same logic as clinical app) ──────────────────────────────
+const HIGH_RISK_DRUGS = ["warfarin", "digoxin", "amiodarone", "methotrexate", "lithium", "opioid", "oxycodone", "hydrocodone", "morphine", "fentanyl"];
+const INTERACTION_PAIRS = [
+  ["warfarin", "aspirin"], ["warfarin", "ibuprofen"], ["metformin", "contrast"],
+  ["lisinopril", "potassium"], ["digoxin", "amiodarone"], ["lithium", "ibuprofen"],
 ];
 
-const MOCK_ALERTS = [
-  { id:"a1", type:"critical", msg:"Warfarin + Aspirin interaction flagged", time:"2 hrs ago" },
-  { id:"a2", type:"warning", msg:"3 missed doses this week", time:"Today" },
-  { id:"a3", type:"info", msg:"Review scheduled for Feb 25", time:"Yesterday" },
+function computeFreeScore(meds) {
+  let score = 0;
+  const flags = [];
+  const names = meds.map(m => m.name.toLowerCase());
+
+  if (meds.length >= 10) { score += 30; flags.push({ label: "High Polypharmacy", detail: `${meds.length} medications`, type: "danger" }); }
+  else if (meds.length >= 5) { score += 15; flags.push({ label: "Polypharmacy", detail: `${meds.length} medications`, type: "warning" }); }
+
+  let interactions = 0;
+  INTERACTION_PAIRS.forEach(([a, b]) => {
+    if (names.some(n => n.includes(a)) && names.some(n => n.includes(b))) {
+      interactions++;
+      flags.push({ label: "Drug Interaction", detail: `${a.charAt(0).toUpperCase() + a.slice(1)} + ${b.charAt(0).toUpperCase() + b.slice(1)}`, type: "danger" });
+    }
+  });
+  score += Math.min(interactions * 10, 30);
+
+  HIGH_RISK_DRUGS.forEach(drug => {
+    if (names.some(n => n.includes(drug))) {
+      score += 7;
+      flags.push({ label: "High-Risk Medication", detail: drug.charAt(0).toUpperCase() + drug.slice(1), type: "warning" });
+    }
+  });
+
+  return { score: Math.min(score, 100), flags };
+}
+
+function getRiskLevel(score) {
+  if (score <= 40) return { label: "Low Risk", color: "success", emoji: "🟢" };
+  if (score <= 70) return { label: "Moderate Risk", color: "warning", emoji: "🟡" };
+  return { label: "High Risk", color: "danger", emoji: "🔴" };
+}
+
+// ─── Dr. Canterbury Videos ────────────────────────────────────────────────────
+const VIDEOS = [
+  {
+    id: "v1",
+    title: "The Hidden Danger of Too Many Pills",
+    subtitle: "TEDx Talk • 18 min",
+    desc: "Dr. Canterbury reveals how polypharmacy silently undermines quality of life in elderly patients — and what caregivers can do about it.",
+    tag: "Featured",
+    tagColor: "accent",
+    thumb: "🎤",
+    year: "2023",
+  },
+  {
+    id: "v2",
+    title: "Deprescribing: The Art of Letting Go",
+    subtitle: "Grand Rounds Lecture • 42 min",
+    desc: "A deep dive into evidence-based frameworks for safely reducing medication burden in patients over 65.",
+    tag: "Clinical",
+    tagColor: "success",
+    thumb: "🏥",
+    year: "2024",
+  },
+  {
+    id: "v3",
+    title: "Talking to Your Doctor About Fewer Meds",
+    subtitle: "Caregiver Guide • 12 min",
+    desc: "Practical scripts and conversation starters for family caregivers who want to advocate for deprescribing at the next appointment.",
+    tag: "For Caregivers",
+    tagColor: "warning",
+    thumb: "💬",
+    year: "2024",
+  },
+  {
+    id: "v4",
+    title: "Polypharmacy & Dementia Risk",
+    subtitle: "Research Seminar • 28 min",
+    desc: "Emerging research linking high medication burden to accelerated cognitive decline — and the implications for treatment decisions.",
+    tag: "Research",
+    tagColor: "accent",
+    thumb: "🧠",
+    year: "2023",
+  },
+  {
+    id: "v5",
+    title: "Falls, Fractures & the Medication Connection",
+    subtitle: "Patient Safety Talk • 22 min",
+    desc: "How certain medication combinations dramatically increase fall risk, and which drugs are most often overlooked.",
+    tag: "Safety",
+    tagColor: "danger",
+    thumb: "⚠️",
+    year: "2024",
+  },
+  {
+    id: "v6",
+    title: "When Less Is More: A Geriatrician's Approach",
+    subtitle: "Interview Series • 35 min",
+    desc: "Dr. Canterbury in conversation with leading geriatricians on building systematic deprescribing into routine care.",
+    tag: "Interview",
+    tagColor: "success",
+    thumb: "🎙️",
+    year: "2025",
+  },
 ];
 
-const MOCK_MESSAGES = [
-  { id:"msg1", from:"Dr. Patel", text:"Please ensure Eleanor takes her Lisinopril with food.", time:"10:22 AM", outgoing:false },
-  { id:"msg2", from:"You", text:"Understood. She had breakfast at 8 AM, will give it now.", time:"10:30 AM", outgoing:true },
-  { id:"msg3", from:"Pharm. Chen", text:"Please watch for swelling or shortness of breath with the Warfarin + Aspirin combo.", time:"11:05 AM", outgoing:false },
-];
+// ─── Shared styles ─────────────────────────────────────────────────────────────
+const font = "'DM Sans', sans-serif";
 
-const MOCK_APPOINTMENTS = [
-  { id:"ap1", title:"Medication Review", doctor:"Dr. Patel", date:"Feb 25, 2026", time:"2:00 PM", location:"Room 204" },
-  { id:"ap2", title:"Pharmacist Consult", doctor:"Pharm. Chen", date:"Mar 4, 2026", time:"10:00 AM", location:"Pharmacy Clinic" },
-];
-
-const SYMPTOM_OPTIONS = ["Dizziness","Nausea","Fatigue","Shortness of breath","Swelling","Confusion","Headache","Chest pain","Rash","Other"];
-
-// ─── Mobile Logo Component (Option A) ────────────────────────────────────────
-function MobileLogoA({ theme = "dark" }) {
-  const isLight = theme === "light";
-  const capsuleLeft = isLight ? "#0369a1" : "#06b6d4";
-  const capsuleRight = isLight ? "#0ea5e9" : "#0e7490";
-  const arrowColor = isLight ? "#0369a1" : "#06b6d4";
-  const dashColor = isLight ? "#f8fafc" : "#060b14";
-  const textPrimary = isLight ? "#0f172a" : "#f1f5f9";
+function Pill({ children, color = "accent", t }) {
+  const th = themes[t];
+  const map = { accent: [th.accentDim, th.accent], success: [th.successDim, th.success], warning: [th.warningDim, th.warning], danger: [th.dangerDim, th.danger] };
+  const [bg, fg] = map[color] || map.accent;
   return (
-    <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-      <svg width="28" height="34" viewBox="0 0 28 34" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M3 13 C3 8 6 4 10 4 L14 4 L14 22 L10 22 C6 22 3 18 3 13 Z" fill={capsuleLeft}/>
-        <path d="M14 4 L18 4 C22 4 25 8 25 13 C25 18 22 22 18 22 L14 22 Z" fill={capsuleRight}/>
-        <line x1="14" y1="4" x2="14" y2="22" stroke={dashColor} strokeWidth="1.2" strokeDasharray="1.5 1.5"/>
-        <path d="M14 25 L14 29" stroke={arrowColor} strokeWidth="1.8" strokeLinecap="round"/>
-        <path d="M10 27 L14 32 L18 27" stroke={arrowColor} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-      </svg>
-      <div>
-        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:800, fontSize:14, color:textPrimary, letterSpacing:"-0.3px", lineHeight:1 }}>Less</div>
-        <div style={{ fontFamily:"'Outfit',sans-serif", fontWeight:300, fontSize:10, color:arrowColor, letterSpacing:"2px", lineHeight:1, marginTop:1 }}>MEDS</div>
-      </div>
-    </div>
+    <span style={{ background: bg, color: fg, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: font }}>
+      {children}
+    </span>
   );
 }
 
-// ─── Main App ─────────────────────────────────────────────────────────────────
-export default function CaregiverApp() {
-  const [themeName, setThemeName] = useState("dark");
-  const t = THEMES[themeName];
-  const [screen, setScreen] = useState("home");
-  const [meds, setMeds] = useState(MOCK_MEDICATIONS);
-  const [symptoms, setSymptoms] = useState([]);
-  const [msgInput, setMsgInput] = useState("");
-  const [messages, setMessages] = useState(MOCK_MESSAGES);
-  const [showSymptomForm, setShowSymptomForm] = useState(false);
-  const [selectedSymptoms, setSelectedSymptoms] = useState([]);
-  const [symptomNotes, setSymptomNotes] = useState("");
-  const [toasts, setToasts] = useState([]);
+// ─── App ──────────────────────────────────────────────────────────────────────
+export default function LessMedsFree() {
+  const [theme, setTheme] = useState("dark");
+  const [screen, setScreen] = useState("home"); // home | checker | results | resources
+  const [meds, setMeds] = useState([]);
+  const [result, setResult] = useState(null);
+  const [activeVideo, setActiveVideo] = useState(null);
+  const [pricingTab, setPricingTab] = useState("monthly");
+  const t = themes[theme];
 
-  const takenCount = meds.filter(m=>m.taken).length;
-  const pendingCount = meds.filter(m=>!m.taken).length;
-  const score = 82;
-
-  function toast(msg, type="success") {
-    const id = Date.now();
-    setToasts(t=>[...t,{id,msg,type}]);
-    setTimeout(()=>setToasts(t=>t.filter(x=>x.id!==id)),3000);
-  }
-  function markTaken(id) {
-    setMeds(prev=>prev.map(m=>m.id!==id?m:{...m,taken:true}));
-    const med = meds.find(m=>m.id===id);
-    toast(`${med?.name} marked as taken ✓`);
-  }
-  function logSymptoms() {
-    if(!selectedSymptoms.length) return;
-    const entry = {
-      id: Date.now(),
-      caseId: "C001",
-      patientName: "Eleanor Whitmore",
-      symptoms: selectedSymptoms,
-      notes: symptomNotes,
-      reportedBy: "Caregiver (Mobile App)",
-      time: new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}),
-      date: new Date().toLocaleDateString(),
-      timestamp: new Date().toISOString(),
-    };
-    setSymptoms(prev=>[entry,...prev]);
-    // Write to shared store so the clinical web app receives it in real time
-    if (typeof symptomStore !== "undefined") {
-      symptomStore.add(entry);
-    }
-    setSelectedSymptoms([]); setSymptomNotes(""); setShowSymptomForm(false);
-    toast("Symptoms reported to care team","info");
-  }
-  function sendMessage() {
-    if(!msgInput.trim()) return;
-    const msg = { id:Date.now(), from:"You", text:msgInput, time:new Date().toLocaleTimeString(), outgoing:true };
-    setMessages(prev=>[...prev,msg]);
-    setMsgInput("");
-    toast("Message sent securely");
-  }
-
+  // Animate nav active indicator
   const navItems = [
-    { id:"home", icon:"⬡", label:"Home" }, { id:"meds", icon:"◎", label:"Meds" },
-    { id:"symptoms", icon:"♥", label:"Symptoms" }, { id:"messages", icon:"◈", label:"Messages" },
-    { id:"settings", icon:"◍", label:"Settings" },
+    { id: "home", icon: "⬡", label: "Home" },
+    { id: "checker", icon: "⊕", label: "Checker" },
+    { id: "resources", icon: "▶", label: "Resources" },
   ];
 
+  const appStyle = {
+    fontFamily: font,
+    background: t.bg,
+    color: t.text,
+    minHeight: "100vh",
+    paddingBottom: 72,
+    transition: "background 0.3s, color 0.3s",
+  };
+
+  const navStyle = {
+    position: "fixed",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 64,
+    background: t.navBg,
+    borderTop: `1px solid ${t.border}`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-around",
+    zIndex: 100,
+    backdropFilter: "blur(12px)",
+  };
+
   return (
-    <ThemeContext.Provider value={t}>
-      <div style={{ display:"flex", justifyContent:"center", alignItems:"center", minHeight:"100vh", background: themeName==="dark"?"#030712":"#e2e8f0", fontFamily:"'DM Sans', sans-serif", transition:"background 0.3s" }}>
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Outfit:wght@300;400;700;800&display=swap" rel="stylesheet"/>
-
-        {/* Phone Frame */}
-        <div style={{ width:375, height:780, background:t.appBg, borderRadius:44, overflow:"hidden",
-          border: themeName==="dark"?"2px solid #1e293b":"2px solid #cbd5e1",
-          position:"relative", display:"flex", flexDirection:"column",
-          boxShadow: themeName==="dark"?"0 40px 100px rgba(0,0,0,0.8)":"0 40px 100px rgba(0,0,0,0.2)",
-          transition:"all 0.3s" }}>
-
-          {/* Status Bar */}
-          <div style={{ height:44, background:t.statusBar, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 20px", flexShrink:0, borderBottom:`1px solid ${t.border}` }}>
-            <span style={{ fontSize:12, fontWeight:600, color:t.textPrimary }}>9:41</span>
-            <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-              <span style={{ fontSize:11, color:t.textSecondary }}>●●●</span>
-              <span style={{ fontSize:11, color:t.textSecondary }}>WiFi</span>
-              <span style={{ fontSize:11, color:t.textSecondary }}>🔋</span>
-            </div>
-          </div>
-
-          {/* Header */}
-          <div style={{ padding:"10px 20px 14px", background:t.headerBg, borderBottom:`1px solid ${t.border}`, flexShrink:0, boxShadow: themeName==="light"?"0 1px 4px rgba(0,0,0,0.06)":"none" }}>
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <MobileLogoA theme={themeName} />
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <div style={{ width:8, height:8, borderRadius:"50%", background:score>=71?t.danger:score>=41?t.warning:t.success }}/>
-                <div style={{ fontSize:13, fontWeight:700, color:score>=71?t.danger:score>=41?t.warning:t.success }}>Score: {score}</div>
+    <>
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
+      <div style={appStyle}>
+        {/* Header */}
+        <header style={{
+          padding: "16px 20px",
+          borderBottom: `1px solid ${t.border}`,
+          background: t.navBg,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          backdropFilter: "blur(12px)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 32, height: 32, borderRadius: 8,
+              background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 16,
+            }}>💊</div>
+            <div>
+              <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 17, fontWeight: 400, letterSpacing: -0.3, lineHeight: 1 }}>
+                Less<span style={{ color: t.accent }}>Meds</span>
               </div>
+              <div style={{ fontSize: 9, color: t.textMuted, letterSpacing: 1, textTransform: "uppercase", lineHeight: 1.2 }}>Polypharmacy Risk Tool</div>
             </div>
-            <div style={{ fontSize:13, color:t.textSecondary, marginTop:4 }}>Eleanor Whitmore · Age 78</div>
           </div>
+          <button
+            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+            style={{
+              background: t.pillBg, border: `1px solid ${t.border}`, borderRadius: 8,
+              padding: "6px 12px", color: t.textSub, fontSize: 13, cursor: "pointer",
+              fontFamily: font,
+            }}
+          >
+            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
+          </button>
+        </header>
 
-          {/* Content */}
-          <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding: screen==="messages"?0:16, background:t.appBg }}>
-            {screen==="home" && <HomeScreen meds={meds} takenCount={takenCount} pendingCount={pendingCount} alerts={MOCK_ALERTS} onNavigate={setScreen} onMarkTaken={markTaken} score={score}/>}
-            {screen==="meds" && <MedsScreen meds={meds} onMark={markTaken}/>}
-            {screen==="symptoms" && <SymptomsScreen symptoms={symptoms} show={showSymptomForm} setShow={setShowSymptomForm} selected={selectedSymptoms} setSelected={setSelectedSymptoms} notes={symptomNotes} setNotes={setSymptomNotes} onLog={logSymptoms} options={SYMPTOM_OPTIONS}/>}
-            {screen==="messages" && <MessagesScreen messages={messages} msgInput={msgInput} setMsgInput={setMsgInput} onSend={sendMessage}/>}
-            {screen==="settings" && <MobileSettings themeName={themeName} setThemeName={setThemeName}/>}
-          </div>
+        {/* Screens */}
+        {screen === "home" && <HomeScreen t={t} theme={theme} onStart={() => setScreen("checker")} onResources={() => setScreen("resources")} />}
+        {screen === "checker" && <CheckerScreen t={t} theme={theme} meds={meds} setMeds={setMeds} onResult={(r) => { setResult(r); setScreen("results"); }} />}
+        {screen === "results" && result && <ResultsScreen t={t} theme={theme} result={result} meds={meds} pricingTab={pricingTab} setPricingTab={setPricingTab} onBack={() => setScreen("checker")} onResources={() => setScreen("resources")} />}
+        {screen === "resources" && <ResourcesScreen t={t} theme={theme} activeVideo={activeVideo} setActiveVideo={setActiveVideo} />}
 
-          {/* Bottom Nav */}
-          <div style={{ height:74, background:t.navBg, borderTop:`1px solid ${t.navBorder}`, display:"flex", flexShrink:0, boxShadow: themeName==="light"?"0 -1px 4px rgba(0,0,0,0.06)":"none" }}>
-            {navItems.map(n=>(
-              <button key={n.id} onClick={()=>setScreen(n.id)} style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3, background:"transparent", border:"none", cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
-                <span style={{ fontSize:16, opacity: screen===n.id?1:0.4, transition:"opacity 0.15s" }}>{n.icon}</span>
-                <span style={{ fontSize:9, letterSpacing:0.5, textTransform:"uppercase", fontWeight:600, color: screen===n.id?t.navActive:t.navInactive, transition:"color 0.15s" }}>{n.label}</span>
+        {/* Bottom Nav */}
+        <nav style={navStyle}>
+          {navItems.map(item => {
+            const active = screen === item.id || (item.id === "checker" && screen === "results");
+            return (
+              <button
+                key={item.id}
+                onClick={() => setScreen(item.id)}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                  padding: "8px 20px",
+                  color: active ? t.accent : t.textMuted,
+                  fontFamily: font,
+                  transition: "color 0.2s",
+                }}
+              >
+                <span style={{ fontSize: 20 }}>{item.icon}</span>
+                <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, letterSpacing: 0.5 }}>{item.label}</span>
+                {active && <span style={{ width: 4, height: 4, borderRadius: 2, background: t.accent, marginTop: -2 }} />}
               </button>
-            ))}
-          </div>
-
-          {/* Toasts */}
-          <div style={{ position:"absolute", top:100, left:16, right:16, display:"flex", flexDirection:"column", gap:8, zIndex:10, pointerEvents:"none" }}>
-            {toasts.map(toast=>(
-              <div key={toast.id} style={{ padding:"10px 14px", borderRadius:10,
-                background:toast.type==="success"?t.successBg:t.cardBg,
-                border:`1px solid ${toast.type==="success"?t.success:t.border}`,
-                color:t.textPrimary, fontSize:12, boxShadow:"0 4px 20px rgba(0,0,0,0.15)", animation:"slideDown 0.3s ease" }}>
-                {toast.type==="success"?"✅ ":"ℹ️ "}{toast.msg}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <style>{`
-          @keyframes slideDown { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
-          ::-webkit-scrollbar { display:none; }
-        `}</style>
+            );
+          })}
+        </nav>
       </div>
-    </ThemeContext.Provider>
+    </>
   );
 }
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
-function HomeScreen({ meds, takenCount, pendingCount, alerts, onNavigate, onMarkTaken, score }) {
-  const t = useTheme();
-  const nextMed = meds.find(m=>!m.taken);
-  const scoreColor = score>=71?t.danger:score>=41?t.warning:t.success;
+function HomeScreen({ t, onStart, onResources }) {
+  const stats = [
+    { value: "40%", label: "of adults 65+ take 5+ meds daily" },
+    { value: "2×", label: "higher fall risk with 5+ medications" },
+    { value: "30%", label: "of hospital admissions are drug-related" },
+  ];
+
   return (
-    <div>
-      {/* Progress Ring */}
-      <div style={{ display:"flex", alignItems:"center", gap:16, background:t.cardBg, border:`1px solid ${t.border}`, borderRadius:16, padding:16, marginBottom:14, boxShadow: t.appBg==="#f0f4f8"?"0 1px 4px rgba(0,0,0,0.06)":"none" }}>
-        <svg width={64} height={64} viewBox="0 0 64 64">
-          <circle cx="32" cy="32" r="26" fill="none" stroke={t.progressTrack} strokeWidth="5"/>
-          <circle cx="32" cy="32" r="26" fill="none" stroke={t.success} strokeWidth="5"
-            strokeDasharray={`${(takenCount/meds.length)*163} 163`}
-            strokeLinecap="round" transform="rotate(-90 32 32)"/>
-          <text x="32" y="36" textAnchor="middle" fill={t.textPrimary} fontSize="14" fontWeight="700" fontFamily="monospace">{takenCount}/{meds.length}</text>
-        </svg>
-        <div>
-          <div style={{ fontSize:14, fontWeight:700, color:t.textPrimary }}>Today's Progress</div>
-          <div style={{ fontSize:12, color:t.success, marginTop:2 }}>{takenCount} taken</div>
-          <div style={{ fontSize:12, color:t.textMuted }}>{pendingCount} remaining</div>
-        </div>
-        <div style={{ marginLeft:"auto", display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
-          <div style={{ fontSize:11, color:t.textMuted }}>Risk</div>
-          <div style={{ fontSize:20, fontWeight:700, color:scoreColor }}>{score}</div>
+    <div style={{ padding: "0 0 24px" }}>
+      {/* Hero */}
+      <div style={{
+        padding: "36px 24px 32px",
+        background: `linear-gradient(160deg, ${t.surfaceAlt} 0%, ${t.bg} 100%)`,
+        borderBottom: `1px solid ${t.border}`,
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        {/* Decorative bg circles */}
+        <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: t.accentGlow, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", bottom: -20, left: -20, width: 120, height: 120, borderRadius: "50%", background: t.accentGlow, pointerEvents: "none" }} />
+
+        <div style={{ position: "relative" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: t.accentDim, borderRadius: 20, padding: "4px 12px", marginBottom: 16 }}>
+            <span style={{ fontSize: 10, color: t.accent, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase" }}>Free Risk Assessment</span>
+          </div>
+
+          <h1 style={{
+            fontFamily: "'DM Serif Display', serif",
+            fontSize: 32, fontWeight: 400, lineHeight: 1.15,
+            margin: "0 0 12px",
+            letterSpacing: -0.5,
+          }}>
+            Is your loved one on<br /><em style={{ color: t.accent }}>too many medications?</em>
+          </h1>
+
+          <p style={{ color: t.textSub, fontSize: 15, lineHeight: 1.6, margin: "0 0 24px", maxWidth: 340 }}>
+            Polypharmacy — taking 5 or more medications — is one of the most under-recognized health risks for seniors. Check the risk in under 2 minutes.
+          </p>
+
+          <button
+            onClick={onStart}
+            style={{
+              background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+              border: "none", borderRadius: 12,
+              padding: "14px 28px",
+              color: "#fff", fontSize: 15, fontWeight: 600,
+              cursor: "pointer", fontFamily: font,
+              boxShadow: `0 8px 24px ${t.accentGlow}`,
+              width: "100%",
+              letterSpacing: 0.2,
+            }}
+          >
+            Start Free Medication Check →
+          </button>
+          <p style={{ color: t.textMuted, fontSize: 12, textAlign: "center", marginTop: 8 }}>No sign-up required • No PHI collected</p>
         </div>
       </div>
 
-      {/* Alerts */}
-      {alerts.slice(0,2).map(a=>(
-        <div key={a.id} style={{ padding:"10px 14px", borderRadius:12, marginBottom:10, display:"flex", gap:10, alignItems:"flex-start",
-          background:a.type==="critical"?t.dangerBg:a.type==="warning"?t.warningBg:t.cardBg,
-          border:`1px solid ${a.type==="critical"?t.danger+"44":a.type==="warning"?t.warning+"44":t.border}` }}>
-          <span style={{ fontSize:14 }}>{a.type==="critical"?"🔴":a.type==="warning"?"🟡":"🔵"}</span>
-          <div>
-            <div style={{ fontSize:12, fontWeight:600, color:a.type==="critical"?t.dangerText:a.type==="warning"?t.warningText:t.accent }}>{a.msg}</div>
-            <div style={{ fontSize:10, color:t.textMuted, marginTop:2 }}>{a.time}</div>
+      {/* Stats */}
+      <div style={{ padding: "24px 20px 0", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
+        {stats.map((s, i) => (
+          <div key={i} style={{
+            background: t.surface, border: `1px solid ${t.border}`,
+            borderRadius: 12, padding: "14px 10px", textAlign: "center",
+          }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: t.accent, fontFamily: "'DM Serif Display', serif" }}>{s.value}</div>
+            <div style={{ fontSize: 10, color: t.textSub, marginTop: 4, lineHeight: 1.4 }}>{s.label}</div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
 
-      {/* Next Med */}
-      {nextMed && (
-        <div style={{ background:t.cardBg, border:`1px solid ${t.accent}44`, borderRadius:16, padding:16, marginBottom:14, boxShadow: t.appBg==="#f0f4f8"?"0 1px 4px rgba(0,0,0,0.06)":"none" }}>
-          <div style={{ fontSize:11, color:t.accent, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>Next Medication</div>
-          <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-            <div style={{ width:40, height:40, borderRadius:12, background:nextMed.color+"22", border:`1px solid ${nextMed.color}55`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>💊</div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontSize:15, fontWeight:700, color:t.textPrimary }}>{nextMed.name}</div>
-              <div style={{ fontSize:12, color:t.textSecondary }}>{nextMed.dose} · {nextMed.time}</div>
-            </div>
-            <button onClick={()=>onMarkTaken(nextMed.id)} style={{ padding:"7px 14px", borderRadius:10, border:"none", background:t.btnPrimary, color:t.btnPrimaryText, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
-              Mark Taken
+      {/* Dr. Canterbury callout */}
+      <div style={{ margin: "20px 20px 0" }}>
+        <div style={{
+          background: t.surface, border: `1px solid ${t.border}`,
+          borderRadius: 16, padding: "20px",
+          display: "flex", gap: 16, alignItems: "flex-start",
+        }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: "50%", flexShrink: 0,
+            background: `linear-gradient(135deg, ${t.accent}33, ${t.accentDim})`,
+            border: `2px solid ${t.accent}`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 24,
+          }}>👨‍⚕️</div>
+          <div>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>Dr. DeLon Canterbury</div>
+            <div style={{ color: t.accent, fontSize: 11, fontWeight: 500, marginBottom: 6 }}>Geriatrician & Deprescribing Expert</div>
+            <p style={{ color: t.textSub, fontSize: 13, lineHeight: 1.5, margin: "0 0 12px" }}>
+              "Most of my patients come to me on 10+ medications. Many of them don't need half of what they're taking. The question isn't just what to take — it's what to stop."
+            </p>
+            <button
+              onClick={onResources}
+              style={{
+                background: "none", border: `1px solid ${t.accent}`,
+                borderRadius: 8, padding: "7px 14px",
+                color: t.accent, fontSize: 12, fontWeight: 600,
+                cursor: "pointer", fontFamily: font,
+              }}
+            >
+              Watch his talks →
             </button>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* Quick Actions */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+      {/* How it works */}
+      <div style={{ margin: "24px 20px 0" }}>
+        <h2 style={{ fontSize: 14, fontWeight: 600, color: t.textMuted, letterSpacing: 1, textTransform: "uppercase", marginBottom: 16 }}>How It Works</h2>
         {[
-          { label:"Log Symptoms", icon:"♥", screen:"symptoms", color:t.danger },
-          { label:"Message Team", icon:"◈", screen:"messages", color:t.accent },
-          { label:"All Meds", icon:"◎", screen:"meds", color:t.success },
-          { label:"Settings", icon:"◍", screen:"settings", color:t.textSecondary },
-        ].map(a=>(
-          <button key={a.label} onClick={()=>onNavigate(a.screen)} style={{ padding:"14px 12px", borderRadius:14, border:`1px solid ${a.color}33`, background:`${a.color}11`, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", textAlign:"left", transition:"opacity 0.15s" }}>
-            <div style={{ fontSize:20, marginBottom:6 }}>{a.icon}</div>
-            <div style={{ fontSize:12, fontWeight:600, color:a.color }}>{a.label}</div>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ─── Meds Screen ──────────────────────────────────────────────────────────────
-function MedsScreen({ meds, onMark }) {
-  const t = useTheme();
-  const times = [...new Set(meds.map(m=>m.time))];
-  return (
-    <div>
-      <div style={{ fontSize:15, fontWeight:700, color:t.textPrimary, marginBottom:16 }}>Medication List</div>
-      {times.map(time=>(
-        <div key={time} style={{ marginBottom:16 }}>
-          <div style={{ fontSize:11, color:t.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:8 }}>📅 {time}</div>
-          {meds.filter(m=>m.time===time).map(m=>(
-            <div key={m.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:12,
-              background:t.cardBg, border:`1px solid ${m.taken?t.success+"44":t.border}`, marginBottom:8, opacity:m.taken?0.7:1,
-              boxShadow: t.appBg==="#f0f4f8"?"0 1px 4px rgba(0,0,0,0.05)":"none" }}>
-              <div style={{ width:36, height:36, borderRadius:10, background:m.color+"22", border:`1px solid ${m.color}44`, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                <span style={{ fontSize:14 }}>💊</span>
-              </div>
-              <div style={{ flex:1 }}>
-                <div style={{ fontSize:14, fontWeight:600, color:t.textPrimary }}>{m.name}</div>
-                <div style={{ fontSize:11, color:t.textSecondary, marginTop:1 }}>{m.dose}</div>
-              </div>
-              {m.taken ? (
-                <span style={{ fontSize:18 }}>✅</span>
-              ) : (
-                <button onClick={()=>onMark(m.id)} style={{ padding:"5px 12px", borderRadius:8, border:`1px solid ${t.accent}`, background:t.accentBg, color:t.accent, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Take</button>
-              )}
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Symptoms Screen ──────────────────────────────────────────────────────────
-function SymptomsScreen({ symptoms, show, setShow, selected, setSelected, notes, setNotes, onLog, options }) {
-  const t = useTheme();
-  function toggle(s) { setSelected(prev=>prev.includes(s)?prev.filter(x=>x!==s):[...prev,s]); }
-  return (
-    <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-        <div style={{ fontSize:15, fontWeight:700, color:t.textPrimary }}>Symptom Log</div>
-        <button onClick={()=>setShow(true)} style={{ padding:"6px 14px", borderRadius:8, border:`1px solid ${t.accent}`, background:t.accentBg, color:t.accent, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>+ Report</button>
-      </div>
-      {show && (
-        <div style={{ background:t.cardBg, border:`1px solid ${t.border}`, borderRadius:16, padding:16, marginBottom:16, boxShadow: t.appBg==="#f0f4f8"?"0 2px 8px rgba(0,0,0,0.08)":"none" }}>
-          <div style={{ fontSize:13, fontWeight:600, color:t.textPrimary, marginBottom:12 }}>Report Symptoms</div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:12 }}>
-            {options.map(s=>(
-              <button key={s} onClick={()=>toggle(s)} style={{ padding:"5px 10px", borderRadius:20,
-                border:`1px solid ${selected.includes(s)?t.accent:t.border}`,
-                background:selected.includes(s)?t.accentBg:"transparent",
-                color:selected.includes(s)?t.accent:t.textSecondary, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>{s}</button>
-            ))}
-          </div>
-          <textarea value={notes} onChange={e=>setNotes(e.target.value)} placeholder="Additional notes..." rows={2}
-            style={{ width:"100%", padding:"8px 10px", borderRadius:8, border:`1px solid ${t.border}`, background:t.inputBg, color:t.textPrimary, fontSize:12, fontFamily:"'DM Sans',sans-serif", resize:"none", boxSizing:"border-box" }}/>
-          <div style={{ display:"flex", gap:8, marginTop:10 }}>
-            <button onClick={()=>setShow(false)} style={{ flex:1, padding:"8px", borderRadius:8, border:`1px solid ${t.border}`, background:"transparent", color:t.textSecondary, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Cancel</button>
-            <button onClick={onLog} style={{ flex:2, padding:"8px", borderRadius:8, border:"none", background:t.btnPrimary, color:t.btnPrimaryText, fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Submit to Care Team</button>
-          </div>
-        </div>
-      )}
-      {symptoms.length === 0 && !show && (
-        <div style={{ textAlign:"center", padding:"40px 0", color:t.textMuted, fontSize:13 }}>No symptoms logged yet.<br/>Tap + Report to log symptoms.</div>
-      )}
-      {symptoms.map(s=>(
-        <div key={s.id} style={{ background:t.cardBg, border:`1px solid ${t.border}`, borderRadius:12, padding:14, marginBottom:10 }}>
-          <div style={{ display:"flex", justifyContent:"space-between", marginBottom:8 }}>
-            <span style={{ fontSize:11, color:t.textMuted }}>{s.date} · {s.time}</span>
-            <span style={{ fontSize:11, color:t.warning }}>Reported to care team</span>
-          </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:6 }}>
-            {s.symptoms.map(sym=><span key={sym} style={{ padding:"3px 8px", borderRadius:20, background:t.pillBg, color:t.pillText, fontSize:11 }}>{sym}</span>)}
-          </div>
-          {s.notes && <div style={{ marginTop:8, fontSize:12, color:t.textMuted, fontStyle:"italic" }}>{s.notes}</div>}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ─── Messages Screen ──────────────────────────────────────────────────────────
-function MessagesScreen({ messages, msgInput, setMsgInput, onSend }) {
-  const t = useTheme();
-  return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
-      <div style={{ padding:"12px 16px", borderBottom:`1px solid ${t.border}`, background:t.headerBg, flexShrink:0 }}>
-        <div style={{ fontSize:14, fontWeight:700, color:t.textPrimary }}>Secure Messaging</div>
-        <div style={{ fontSize:11, color:t.success, marginTop:1 }}>🔒 End-to-end encrypted · No PHI in notifications</div>
-      </div>
-      <div style={{ flex:1, overflowY:"auto", padding:16, display:"flex", flexDirection:"column", gap:10, background:t.appBg }}>
-        {messages.map(m=>(
-          <div key={m.id} style={{ display:"flex", justifyContent:m.outgoing?"flex-end":"flex-start" }}>
-            <div style={{ maxWidth:"80%", padding:"10px 14px",
-              borderRadius:m.outgoing?"16px 4px 16px 16px":"4px 16px 16px 16px",
-              background:m.outgoing?t.msgOut:t.msgIn, color:m.outgoing?t.msgOutText:t.msgInText,
-              boxShadow: t.appBg==="#f0f4f8"?"0 1px 4px rgba(0,0,0,0.08)":"none" }}>
-              {!m.outgoing && <div style={{ fontSize:10, fontWeight:700, color:t.accent, marginBottom:3 }}>{m.from}</div>}
-              <div style={{ fontSize:13, lineHeight:1.4 }}>{m.text}</div>
-              <div style={{ fontSize:10, color:m.outgoing?`${t.msgOutText}88`:t.textMuted, marginTop:3, textAlign:"right" }}>{m.time}</div>
+          { step: "1", title: "Enter medications", desc: "Add your loved one's current medications — just the name, dose, and frequency.", icon: "💊" },
+          { step: "2", title: "Get a risk score", desc: "Our algorithm checks for polypharmacy, drug interactions, and high-risk combinations.", icon: "📊" },
+          { step: "3", title: "Take action", desc: "If risk is detected, connect with a clinical pharmacist for an official review.", icon: "🩺" },
+        ].map((item) => (
+          <div key={item.step} style={{ display: "flex", gap: 14, marginBottom: 18, alignItems: "flex-start" }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+              background: t.surfaceAlt, border: `1px solid ${t.border}`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 18,
+            }}>{item.icon}</div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 2 }}>{item.title}</div>
+              <div style={{ color: t.textSub, fontSize: 13, lineHeight: 1.5 }}>{item.desc}</div>
             </div>
           </div>
         ))}
       </div>
-      <div style={{ padding:12, borderTop:`1px solid ${t.border}`, background:t.headerBg, display:"flex", gap:8, flexShrink:0 }}>
-        <input value={msgInput} onChange={e=>setMsgInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&onSend()}
-          placeholder="Secure message..." style={{ flex:1, padding:"10px 14px", borderRadius:24, border:`1px solid ${t.border}`, background:t.inputBg, color:t.textPrimary, fontSize:13, fontFamily:"'DM Sans',sans-serif", outline:"none" }}/>
-        <button onClick={onSend} style={{ width:40, height:40, borderRadius:"50%", border:"none", background:t.btnPrimary, color:t.btnPrimaryText, fontSize:16, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>→</button>
-      </div>
     </div>
   );
 }
 
-// ─── Mobile Settings with Theme Switcher ─────────────────────────────────────
-function MobileSettings({ themeName, setThemeName }) {
-  const t = useTheme();
-  return (
-    <div>
-      <div style={{ fontSize:15, fontWeight:700, color:t.textPrimary, marginBottom:16 }}>Settings</div>
+// ─── Checker Screen ───────────────────────────────────────────────────────────
+function CheckerScreen({ t, meds, setMeds, onResult }) {
+  const [name, setName] = useState("");
+  const [dose, setDose] = useState("");
+  const [freq, setFreq] = useState("Once daily");
+  const [error, setError] = useState("");
+  const inputRef = useRef();
 
-      {/* Theme Card */}
-      <div style={{ background:t.cardBg, border:`1px solid ${t.accent}44`, borderRadius:16, padding:16, marginBottom:14, boxShadow: t.appBg==="#f0f4f8"?"0 2px 8px rgba(0,0,0,0.06)":"none" }}>
-        <div style={{ fontSize:11, color:t.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:12 }}>Display Theme</div>
-        <div style={{ display:"flex", gap:10 }}>
-          {Object.entries(THEMES).map(([key, th]) => (
-            <button key={key} onClick={()=>setThemeName(key)} style={{ flex:1, padding:"14px 10px", borderRadius:12,
-              border:`2px solid ${themeName===key?t.accent:t.border}`,
-              background:themeName===key?t.accentBg:t.cardBg2,
-              cursor:"pointer", fontFamily:"'DM Sans',sans-serif", textAlign:"center", transition:"all 0.2s" }}>
-              <div style={{ display:"flex", justifyContent:"center", marginBottom:8 }}>
-                <div style={{ padding:"8px 10px", borderRadius:8, background: key==="dark" ? "#0a1628" : "#f0f9ff", border:`1px solid ${t.border}` }}>
-                  <MobileLogoA theme={key} />
+  const freqs = ["Once daily", "Twice daily", "Three times daily", "Four times daily", "Every other day", "Weekly", "As needed"];
+
+  const addMed = () => {
+    if (!name.trim()) { setError("Please enter a medication name."); return; }
+    setMeds(prev => [...prev, { id: Date.now(), name: name.trim(), dose: dose.trim() || "—", freq }]);
+    setName(""); setDose(""); setError("");
+    inputRef.current?.focus();
+  };
+
+  const removeMed = (id) => setMeds(prev => prev.filter(m => m.id !== id));
+
+  const handleRun = () => {
+    if (meds.length === 0) { setError("Add at least one medication to check."); return; }
+    const { score, flags } = computeFreeScore(meds);
+    onResult({ score, flags, medCount: meds.length });
+  };
+
+  const inputStyle = {
+    background: t.surfaceAlt, border: `1px solid ${t.border}`,
+    borderRadius: 10, padding: "12px 14px",
+    color: t.text, fontSize: 14, fontFamily: font,
+    outline: "none", width: "100%", boxSizing: "border-box",
+  };
+
+  return (
+    <div style={{ padding: "24px 20px" }}>
+      <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, fontWeight: 400, margin: "0 0 4px" }}>Medication Checker</h2>
+      <p style={{ color: t.textSub, fontSize: 14, margin: "0 0 24px" }}>Enter current medications. No names or identifying information needed.</p>
+
+      {/* Add form */}
+      <div style={{
+        background: t.surface, border: `1px solid ${t.border}`,
+        borderRadius: 16, padding: "18px", marginBottom: 20,
+      }}>
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Medication Name *</label>
+          <input
+            ref={inputRef}
+            value={name}
+            onChange={e => { setName(e.target.value); setError(""); }}
+            onKeyDown={e => e.key === "Enter" && addMed()}
+            placeholder="e.g. Metformin, Lisinopril, Aspirin..."
+            style={inputStyle}
+          />
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 14 }}>
+          <div>
+            <label style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Dose</label>
+            <input
+              value={dose}
+              onChange={e => setDose(e.target.value)}
+              placeholder="e.g. 500mg"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", display: "block", marginBottom: 6 }}>Frequency</label>
+            <select
+              value={freq}
+              onChange={e => setFreq(e.target.value)}
+              style={{ ...inputStyle, appearance: "none", cursor: "pointer" }}
+            >
+              {freqs.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+        </div>
+        {error && <div style={{ color: t.danger, fontSize: 12, marginBottom: 10 }}>{error}</div>}
+        <button
+          onClick={addMed}
+          style={{
+            background: t.accentDim, border: `1px solid ${t.accent}`,
+            borderRadius: 10, padding: "10px 0",
+            color: t.accent, fontSize: 14, fontWeight: 600,
+            cursor: "pointer", fontFamily: font, width: "100%",
+          }}
+        >
+          + Add Medication
+        </button>
+      </div>
+
+      {/* Medication list */}
+      {meds.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 10 }}>
+            Added Medications ({meds.length})
+          </div>
+          {meds.map((m, i) => (
+            <div key={m.id} style={{
+              background: t.surface, border: `1px solid ${t.border}`,
+              borderRadius: 10, padding: "12px 14px",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginBottom: 8,
+              animation: "fadeIn 0.2s ease",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: 8,
+                  background: t.pillBg, color: t.accent,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, fontWeight: 700,
+                }}>{i + 1}</div>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{m.name}</div>
+                  <div style={{ color: t.textSub, fontSize: 12 }}>{m.dose} · {m.freq}</div>
                 </div>
               </div>
-              <div style={{ fontSize:11, fontWeight:700, color:t.textPrimary }}>{key==="dark"?"Dark":"Light"}</div>
-              <div style={{ fontSize:9, color:t.textMuted, marginTop:2, lineHeight:1.3 }}>{key==="dark"?"High contrast":"Clinical white"}</div>
-              {themeName===key && <div style={{ fontSize:9, color:t.accent, fontWeight:700, marginTop:4 }}>✓ ACTIVE</div>}
+              <button
+                onClick={() => removeMed(m.id)}
+                style={{ background: "none", border: "none", color: t.textMuted, cursor: "pointer", fontSize: 18, padding: 4 }}
+              >×</button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Risk indicator hint */}
+      {meds.length >= 5 && (
+        <div style={{
+          background: t.warningDim, border: `1px solid ${t.warning}33`,
+          borderRadius: 10, padding: "10px 14px", marginBottom: 16,
+          display: "flex", gap: 8, alignItems: "center",
+        }}>
+          <span style={{ fontSize: 16 }}>⚠️</span>
+          <span style={{ color: t.warning, fontSize: 13 }}>
+            {meds.length} medications detected — this exceeds the polypharmacy threshold.
+          </span>
+        </div>
+      )}
+
+      {/* Run button */}
+      <button
+        onClick={handleRun}
+        disabled={meds.length === 0}
+        style={{
+          width: "100%",
+          background: meds.length === 0 ? t.surfaceAlt : `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+          border: "none", borderRadius: 12,
+          padding: "15px 0",
+          color: meds.length === 0 ? t.textMuted : "#fff",
+          fontSize: 15, fontWeight: 600,
+          cursor: meds.length === 0 ? "not-allowed" : "pointer",
+          fontFamily: font,
+          boxShadow: meds.length > 0 ? `0 8px 24px ${t.accentGlow}` : "none",
+          transition: "all 0.2s",
+        }}
+      >
+        {meds.length === 0 ? "Add medications to check" : `Analyze ${meds.length} Medication${meds.length > 1 ? "s" : ""} →`}
+      </button>
+
+      <p style={{ color: t.textMuted, fontSize: 11, textAlign: "center", marginTop: 10, lineHeight: 1.5 }}>
+        This tool is for informational purposes only and does not replace professional medical advice.
+      </p>
+
+      <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }`}</style>
+    </div>
+  );
+}
+
+// ─── Results Screen ───────────────────────────────────────────────────────────
+function ResultsScreen({ t, result, meds, pricingTab, setPricingTab, onBack, onResources }) {
+  const risk = getRiskLevel(result.score);
+  const colorKey = risk.color;
+  const fgColor = t[colorKey];
+  const bgColor = t[colorKey + "Dim"];
+
+  // Animated score fill
+  const [displayScore, setDisplayScore] = useState(0);
+  useEffect(() => {
+    let start = 0;
+    const end = result.score;
+    const timer = setInterval(() => {
+      start += 2;
+      if (start >= end) { setDisplayScore(end); clearInterval(timer); }
+      else setDisplayScore(start);
+    }, 16);
+    return () => clearInterval(timer);
+  }, [result.score]);
+
+  const circumference = 2 * Math.PI * 42;
+  const strokeDash = (displayScore / 100) * circumference;
+
+  return (
+    <div style={{ padding: "24px 20px" }}>
+      <button onClick={onBack} style={{ background: "none", border: "none", color: t.textSub, cursor: "pointer", fontSize: 13, padding: 0, marginBottom: 20, fontFamily: font }}>
+        ← Edit medications
+      </button>
+
+      {/* Score card */}
+      <div style={{
+        background: t.surface, border: `1px solid ${t.border}`,
+        borderRadius: 20, padding: "28px 24px", textAlign: "center",
+        marginBottom: 20, position: "relative", overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${fgColor}, transparent)` }} />
+
+        <div style={{ marginBottom: 16 }}>
+          <svg width="110" height="110" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="42" fill="none" stroke={t.border} strokeWidth="8" />
+            <circle
+              cx="50" cy="50" r="42" fill="none"
+              stroke={fgColor} strokeWidth="8"
+              strokeDasharray={`${strokeDash} ${circumference}`}
+              strokeLinecap="round"
+              transform="rotate(-90 50 50)"
+              style={{ transition: "stroke-dasharray 0.05s linear" }}
+            />
+            <text x="50" y="45" textAnchor="middle" fill={t.text} fontSize="20" fontWeight="700" fontFamily="DM Sans">{displayScore}</text>
+            <text x="50" y="60" textAnchor="middle" fill={t.textMuted} fontSize="9" fontFamily="DM Sans">/ 100</text>
+          </svg>
+        </div>
+
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          background: bgColor, borderRadius: 20, padding: "6px 16px", marginBottom: 12,
+        }}>
+          <span style={{ fontSize: 14 }}>{risk.emoji}</span>
+          <span style={{ color: fgColor, fontWeight: 700, fontSize: 14 }}>{risk.label}</span>
+        </div>
+
+        <div style={{ color: t.textSub, fontSize: 13, lineHeight: 1.5 }}>
+          Based on <strong style={{ color: t.text }}>{result.medCount} medication{result.medCount !== 1 ? "s" : ""}</strong> analyzed
+        </div>
+      </div>
+
+      {/* Flags */}
+      {result.flags.length > 0 && (
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 10 }}>Risk Factors Detected</div>
+          {result.flags.map((f, i) => {
+            const fg = t[f.type];
+            const bg = t[f.type + "Dim"];
+            return (
+              <div key={i} style={{
+                background: t.surface, border: `1px solid ${t.border}`,
+                borderLeft: `3px solid ${fg}`,
+                borderRadius: 10, padding: "10px 14px",
+                display: "flex", justifyContent: "space-between", alignItems: "center",
+                marginBottom: 8,
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 500 }}>{f.label}</span>
+                <span style={{ background: bg, color: fg, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600 }}>{f.detail}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* No flags */}
+      {result.flags.length === 0 && (
+        <div style={{
+          background: t.successDim, border: `1px solid ${t.success}33`,
+          borderRadius: 12, padding: "14px 16px", marginBottom: 20,
+          display: "flex", gap: 10, alignItems: "center",
+        }}>
+          <span style={{ fontSize: 20 }}>✅</span>
+          <div>
+            <div style={{ fontWeight: 600, color: t.success, fontSize: 14 }}>No major risk factors found</div>
+            <div style={{ color: t.textSub, fontSize: 12, marginTop: 2 }}>Consider a clinical review for a thorough assessment.</div>
+          </div>
+        </div>
+      )}
+
+      {/* Disclaimer */}
+      <div style={{
+        background: t.surfaceAlt, borderRadius: 10, padding: "10px 14px", marginBottom: 24,
+        fontSize: 12, color: t.textMuted, lineHeight: 1.5,
+      }}>
+        ⚠️ This score is for informational use only. Only a licensed clinician can evaluate true medication safety.
+      </div>
+
+      {/* Pricing CTA */}
+      <div style={{
+        background: t.surface, border: `1px solid ${t.border}`,
+        borderRadius: 20, padding: "24px 20px", marginBottom: 20,
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 22, fontWeight: 400, marginBottom: 6 }}>
+            Get an Official Clinical Review
+          </div>
+          <p style={{ color: t.textSub, fontSize: 13, lineHeight: 1.5, margin: 0 }}>
+            A licensed pharmacist will review every medication, identify interactions, and work with your physician on a deprescribing plan.
+          </p>
+        </div>
+
+        {/* Toggle tabs */}
+        <div style={{
+          display: "flex", background: t.surfaceAlt, borderRadius: 12, padding: 4,
+          marginBottom: 20,
+        }}>
+          {[["monthly", "Monthly"], ["onetime", "One-Time"]].map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setPricingTab(key)}
+              style={{
+                flex: 1, border: "none", borderRadius: 9, padding: "9px 0",
+                background: pricingTab === key ? t.accent : "transparent",
+                color: pricingTab === key ? "#fff" : t.textSub,
+                fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: font,
+                transition: "all 0.2s", position: "relative",
+              }}
+            >
+              {label}
+              {key === "monthly" && <span style={{
+                position: "absolute", top: -8, right: 8,
+                background: t.success, color: "#fff",
+                fontSize: 8, fontWeight: 700, padding: "2px 5px", borderRadius: 4,
+                letterSpacing: 0.5, textTransform: "uppercase",
+              }}>Best</span>}
             </button>
           ))}
         </div>
-        {/* Color preview swatches */}
-        <div style={{ marginTop:12, padding:"10px 12px", background:t.cardBg2, borderRadius:10, border:`1px solid ${t.border}` }}>
-          <div style={{ fontSize:10, color:t.textMuted, marginBottom:8 }}>Current palette preview</div>
-          <div style={{ display:"flex", gap:6 }}>
-            {[t.appBg, t.cardBg, t.accent, t.danger, t.warning, t.success].map((color,i)=>(
-              <div key={i} style={{ flex:1, height:24, borderRadius:6, background:color, border:`1px solid ${t.border}` }}/>
-            ))}
+
+        {pricingTab === "monthly" ? (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ marginBottom: 6 }}>
+              <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 40, fontWeight: 400 }}>$29</span>
+              <span style={{ color: t.textSub, fontSize: 14 }}>/month</span>
+            </div>
+            <div style={{ color: t.textMuted, fontSize: 12, marginBottom: 16 }}>Cancel anytime</div>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px", textAlign: "left" }}>
+              {[
+                "Full medication safety review",
+                "Ongoing monitoring & adjustments",
+                "Direct pharmacist messaging",
+                "Caregiver app access",
+                "Monthly score updates",
+                "Physician coordination included",
+              ].map(item => (
+                <li key={item} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, fontSize: 13 }}>
+                  <span style={{ color: t.success, fontSize: 14 }}>✓</span>
+                  <span style={{ color: t.textSub }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <button style={{
+              width: "100%",
+              background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+              border: "none", borderRadius: 12, padding: "14px 0",
+              color: "#fff", fontSize: 15, fontWeight: 600,
+              cursor: "pointer", fontFamily: font,
+              boxShadow: `0 8px 24px ${t.accentGlow}`,
+            }}>
+              Start Monthly Plan →
+            </button>
+          </div>
+        ) : (
+          <div style={{ textAlign: "center" }}>
+            <div style={{ marginBottom: 6 }}>
+              <span style={{ fontFamily: "'DM Serif Display', serif", fontSize: 40, fontWeight: 400 }}>$79</span>
+              <span style={{ color: t.textSub, fontSize: 14 }}> one-time</span>
+            </div>
+            <div style={{ color: t.textMuted, fontSize: 12, marginBottom: 16 }}>Single comprehensive review</div>
+            <ul style={{ listStyle: "none", padding: 0, margin: "0 0 20px", textAlign: "left" }}>
+              {[
+                "One-time full medication review",
+                "Written clinical report",
+                "Interaction & risk analysis",
+                "Physician-ready recommendations",
+              ].map(item => (
+                <li key={item} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, fontSize: 13 }}>
+                  <span style={{ color: t.success, fontSize: 14 }}>✓</span>
+                  <span style={{ color: t.textSub }}>{item}</span>
+                </li>
+              ))}
+            </ul>
+            <button style={{
+              width: "100%",
+              background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+              border: "none", borderRadius: 12, padding: "14px 0",
+              color: "#fff", fontSize: 15, fontWeight: 600,
+              cursor: "pointer", fontFamily: font,
+              boxShadow: `0 8px 24px ${t.accentGlow}`,
+            }}>
+              Request One-Time Review →
+            </button>
+            <button
+              onClick={() => setPricingTab("monthly")}
+              style={{
+                width: "100%", background: "none", border: "none",
+                color: t.accent, fontSize: 12, marginTop: 10, cursor: "pointer", fontFamily: font,
+              }}
+            >
+              Switch to monthly for ongoing monitoring ↓
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Resource nudge */}
+      <div
+        onClick={onResources}
+        style={{
+          background: t.surface, border: `1px solid ${t.border}`,
+          borderRadius: 14, padding: "16px", cursor: "pointer",
+          display: "flex", gap: 14, alignItems: "center",
+        }}
+      >
+        <div style={{
+          width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+          background: t.accentDim, display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 22,
+        }}>▶</div>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>Learn from Dr. Canterbury</div>
+          <div style={{ color: t.textSub, fontSize: 12, marginTop: 2 }}>Videos on polypharmacy, deprescribing & caregiver advocacy</div>
+        </div>
+        <span style={{ color: t.textMuted, marginLeft: "auto" }}>›</span>
+      </div>
+    </div>
+  );
+}
+
+// ─── Resources Screen ─────────────────────────────────────────────────────────
+function ResourcesScreen({ t, activeVideo, setActiveVideo }) {
+  const tagColorMap = { accent: [t.accentDim, t.accent], success: [t.successDim, t.success], warning: [t.warningDim, t.warning], danger: [t.dangerDim, t.danger] };
+
+  return (
+    <div style={{ padding: "24px 20px" }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontFamily: "'DM Serif Display', serif", fontSize: 24, fontWeight: 400, margin: "0 0 4px" }}>
+          Resource Center
+        </h2>
+        <p style={{ color: t.textSub, fontSize: 14, margin: 0, lineHeight: 1.5 }}>
+          Expert talks and guides from Dr. DeLon Canterbury on polypharmacy and deprescribing.
+        </p>
+      </div>
+
+      {/* Dr. Canterbury bio card */}
+      <div style={{
+        background: `linear-gradient(135deg, ${t.surfaceAlt}, ${t.surface})`,
+        border: `1px solid ${t.border}`,
+        borderRadius: 16, padding: "18px", marginBottom: 24,
+        display: "flex", gap: 14, alignItems: "center",
+      }}>
+        <div style={{
+          width: 56, height: 56, borderRadius: "50%", flexShrink: 0,
+          background: `linear-gradient(135deg, ${t.accent}44, ${t.accentDim})`,
+          border: `2px solid ${t.accent}`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 26,
+        }}>👨‍⚕️</div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>Dr. DeLon Canterbury</div>
+          <div style={{ color: t.accent, fontSize: 12, fontWeight: 500 }}>MD · Geriatric Medicine</div>
+          <div style={{ color: t.textSub, fontSize: 12, marginTop: 4, lineHeight: 1.4 }}>
+            Nationally recognized expert in polypharmacy, deprescribing, and medication safety for older adults.
           </div>
         </div>
       </div>
 
-      {/* Other settings */}
-      {[
-        { title:"Security", items:[["HIPAA Mode","Enabled ✓"],["PHI in Notifications","Disabled"],["Session Timeout","30 min"]] },
-        { title:"Notifications", items:[["Medication Reminders","On"],["Critical Alerts","On"],["Team Messages","On"]] },
-        { title:"Account", items:[["Role","Caregiver"],["Patient","Eleanor Whitmore"],["Care Team","Dr. Patel, Pharm. Chen"]] },
-      ].map(section=>(
-        <div key={section.title} style={{ background:t.cardBg, border:`1px solid ${t.border}`, borderRadius:14, padding:14, marginBottom:12, boxShadow: t.appBg==="#f0f4f8"?"0 1px 4px rgba(0,0,0,0.05)":"none" }}>
-          <div style={{ fontSize:10, color:t.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>{section.title}</div>
-          {section.items.map(([k,v])=>(
-            <div key={k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 0", borderBottom:`1px solid ${t.border}` }}>
-              <span style={{ fontSize:12, color:t.textSecondary }}>{k}</span>
-              <span style={{ fontSize:12, color:t.success, fontWeight:500 }}>{v}</span>
+      {/* Video grid */}
+      <div style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 12 }}>
+        {VIDEOS.length} Videos & Talks
+      </div>
+
+      {VIDEOS.map(video => {
+        const [tagBg, tagFg] = tagColorMap[video.tagColor] || tagColorMap.accent;
+        const isActive = activeVideo === video.id;
+
+        return (
+          <div
+            key={video.id}
+            onClick={() => setActiveVideo(isActive ? null : video.id)}
+            style={{
+              background: t.surface,
+              border: `1px solid ${isActive ? t.accent : t.border}`,
+              borderRadius: 14, padding: "16px",
+              marginBottom: 12, cursor: "pointer",
+              transition: "border-color 0.2s, box-shadow 0.2s",
+              boxShadow: isActive ? `0 0 0 1px ${t.accent}33, 0 4px 20px ${t.accentGlow}` : "none",
+            }}
+          >
+            <div style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+              {/* Thumbnail placeholder */}
+              <div style={{
+                width: 52, height: 52, borderRadius: 10, flexShrink: 0,
+                background: isActive ? t.accentDim : t.surfaceAlt,
+                border: `1px solid ${isActive ? t.accent : t.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 24, transition: "all 0.2s",
+              }}>
+                {isActive ? "▶" : video.thumb}
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 4 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14, lineHeight: 1.3, flex: 1 }}>{video.title}</div>
+                  <span style={{ background: tagBg, color: tagFg, borderRadius: 6, padding: "2px 7px", fontSize: 9, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", flexShrink: 0 }}>
+                    {video.tag}
+                  </span>
+                </div>
+                <div style={{ color: t.accent, fontSize: 11, fontWeight: 500, marginBottom: 6 }}>{video.subtitle} · {video.year}</div>
+                <div style={{ color: t.textSub, fontSize: 12, lineHeight: 1.5 }}>{video.desc}</div>
+              </div>
             </div>
-          ))}
-        </div>
-      ))}
+
+            {/* Expanded: Video embed placeholder */}
+            {isActive && (
+              <div style={{
+                marginTop: 14,
+                background: t.surfaceAlt,
+                border: `1px solid ${t.border}`,
+                borderRadius: 10, height: 180,
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                gap: 8,
+                animation: "fadeIn 0.2s ease",
+              }}>
+                <div style={{
+                  width: 48, height: 48, borderRadius: "50%",
+                  background: t.accentDim, border: `1px solid ${t.accent}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 20, color: t.accent,
+                }}>▶</div>
+                <div style={{ color: t.textSub, fontSize: 13, fontWeight: 500 }}>YouTube embed goes here</div>
+                <div style={{ color: t.textMuted, fontSize: 11 }}>Paste Dr. Canterbury's video URL to activate</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {/* Footer note */}
+      <div style={{
+        marginTop: 8, padding: "14px 16px",
+        background: t.surfaceAlt, borderRadius: 12,
+        color: t.textMuted, fontSize: 12, lineHeight: 1.5, textAlign: "center",
+      }}>
+        More videos added regularly. Subscribe to LessMeds for the latest content from Dr. Canterbury.
+      </div>
     </div>
   );
 }
