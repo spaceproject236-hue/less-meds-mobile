@@ -781,11 +781,3 @@ function ResourcesScreen({ t, activeVideo, setActiveVideo }) {
   );
 }
 
-function LabeledField({ label, t, children }) {
-  return (
-    <div style={{ marginBottom:13 }}>
-      <label style={{ display:"block", fontSize:11, color:t.textMuted, fontWeight:600, letterSpacing:0.7, textTransform:"uppercase", marginBottom:5, fontFamily:font }}>{label}</label>
-      {children}
-    </div>
-  );
-}
