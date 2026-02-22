@@ -476,11 +476,18 @@ function CheckerScreen({ t, meds, setMeds, onResult }) {
     ? MED_LIST.filter(m => m.toLowerCase().includes(name.toLowerCase()) && m.toLowerCase() !== name.toLowerCase()).slice(0, 6)
     : [];
 
-  const addMed = (medName) => {
-    const finalName = medName || name;
-    if (!finalName.trim()) { setError("Please enter a medication name."); return; }
-    setMeds(p => [...p, { id:Date.now(), name:finalName.trim(), dose:dose.trim()||"—", freq }]);
+  const addMed = () => {
+    if (!name.trim()) { setError("Please enter a medication name."); return; }
+    setMeds(p => [...p, { id:Date.now(), name:name.trim(), dose:dose.trim()||"—", freq }]);
     setName(""); setDose(""); setError(""); setShowSuggestions(false); setHighlightIdx(-1);
+    inputRef.current?.focus();
+  };
+
+  const selectSuggestion = (s) => {
+    setName(s);
+    setShowSuggestions(false);
+    setHighlightIdx(-1);
+    // Focus dose field after selecting
     inputRef.current?.focus();
   };
 
@@ -491,7 +498,7 @@ function CheckerScreen({ t, meds, setMeds, onResult }) {
     }
     if (e.key === "ArrowDown") { e.preventDefault(); setHighlightIdx(i => Math.min(i+1, suggestions.length-1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setHighlightIdx(i => Math.max(i-1, -1)); }
-    else if (e.key === "Enter") { e.preventDefault(); highlightIdx >= 0 ? addMed(suggestions[highlightIdx]) : addMed(); }
+    else if (e.key === "Enter") { e.preventDefault(); if (highlightIdx >= 0) { selectSuggestion(suggestions[highlightIdx]); } else { addMed(); } }
     else if (e.key === "Escape") { setShowSuggestions(false); setHighlightIdx(-1); }
   };
 
@@ -529,7 +536,7 @@ function CheckerScreen({ t, meds, setMeds, onResult }) {
                   return (
                     <div
                       key={s}
-                      onMouseDown={() => addMed(s)}
+                      onMouseDown={() => selectSuggestion(s)}
                       style={{
                         padding:"9px 13px", cursor:"pointer", fontSize:13,
                         background: i === highlightIdx ? t.accentDim : "transparent",
@@ -556,7 +563,7 @@ function CheckerScreen({ t, meds, setMeds, onResult }) {
           <LabeledField label="Frequency" t={t}><select value={freq} onChange={e => setFreq(e.target.value)} style={{ ...iS, appearance:"none", cursor:"pointer" }}>{freqs.map(f => <option key={f}>{f}</option>)}</select></LabeledField>
         </div>
         {error && <div style={{ color:t.danger, fontSize:12, marginBottom:8 }}>{error}</div>}
-        <Btn t={t} variant="outline" onClick={() => addMed()}>+ Add Medication</Btn>
+        <Btn t={t} variant="outline" onClick={addMed}>+ Add Medication</Btn>
       </div>
       {meds.length > 0 && (
         <div style={{ marginBottom:12 }}>
