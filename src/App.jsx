@@ -196,12 +196,14 @@ export default function LessMedsFree() {
     fontFamily: font,
   };
 
+  const frameColor = theme === "dark" ? "#1a1a2e" : "#e8e8ec";
+  const frameBorder = theme === "dark" ? "#333" : "#bbb";
   const phoneFrame = {
     width: 375,
     height: 780,
     borderRadius: 44,
-    background: "#1a1a2e",
-    boxShadow: "0 0 0 10px #1a1a2e, 0 0 0 11px #333, 0 40px 80px rgba(0,0,0,0.8)",
+    background: frameColor,
+    boxShadow: `0 0 0 10px ${frameColor}, 0 0 0 11px ${frameBorder}, 0 40px 80px rgba(0,0,0,0.8)`,
     overflow: "hidden",
     position: "relative",
     display: "flex",
@@ -243,25 +245,27 @@ export default function LessMedsFree() {
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
       <div style={phoneFrameOuter}>
         <div style={phoneFrame}>
+          <div style={phoneScreen}>
           {/* Status bar notch */}
           <div style={{
             height: 44, background: t.navBg, display: "flex",
             alignItems: "center", justifyContent: "space-between",
             padding: "0 24px", flexShrink: 0, borderRadius: "34px 34px 0 0",
+            transition: "background 0.3s",
           }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: t.text, fontFamily: font }}>9:41</span>
             <div style={{
-              width: 120, height: 28, background: "#111",
+              width: 120, height: 28,
+              background: theme === "dark" ? "#111" : "#ddd",
               borderRadius: 14, position: "absolute", left: "50%", transform: "translateX(-50%)",
+              transition: "background 0.3s",
             }} />
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: t.text }}>●●●</span>
-              <span style={{ fontSize: 10, color: t.text }}>▲</span>
-              <span style={{ fontSize: 10, color: t.text }}>⬛</span>
+              <span style={{ fontSize: 10, color: t.textSub }}>●●●</span>
+              <span style={{ fontSize: 10, color: t.textSub }}>▲</span>
+              <span style={{ fontSize: 10, color: t.textSub }}>⬛</span>
             </div>
           </div>
-
-          <div style={phoneScreen}>
             {/* Header */}
             <header style={{
               padding: "10px 20px",
