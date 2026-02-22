@@ -108,7 +108,7 @@ export default function LessMedsFree() {
 
   const frameColor = theme === "dark" ? "#1a1a2e" : "#e8e8ec";
   const frameBorder = theme === "dark" ? "#333" : "#bbb";
-  const hideNav = ["paywall","patientInfo"].includes(screen);
+  const hideNav = ["paywall","patientInfo","fullApp","physicianCode"].includes(screen);
 
   return (
     <>
@@ -118,7 +118,7 @@ export default function LessMedsFree() {
           <div style={{ flex:1, background:t.bg, color:t.text, display:"flex", flexDirection:"column", overflow:"hidden", borderRadius:34, transition:"background 0.3s, color 0.3s" }}>
 
             {/* Status Bar */}
-            <div style={{ height:44, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 24px", flexShrink:0, borderRadius:"34px 34px 0 0", transition:"background 0.3s", position:"relative" }}>
+            {screen !== "fullApp" && <div style={{ height:44, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 24px", flexShrink:0, borderRadius:"34px 34px 0 0", transition:"background 0.3s", position:"relative" }}>
               <span style={{ fontSize:12, fontWeight:600, color:t.text, fontFamily:font }}>9:41</span>
               <div style={{ width:120, height:28, background:theme==="dark"?"#111":"#ddd", borderRadius:14, position:"absolute", left:"50%", transform:"translateX(-50%)", transition:"background 0.3s" }} />
               <div style={{ display:"flex", gap:5, alignItems:"center" }}>
@@ -126,10 +126,10 @@ export default function LessMedsFree() {
                 <span style={{ fontSize:9, color:t.textSub }}>▲</span>
                 <span style={{ fontSize:9, color:t.textSub }}>⬛</span>
               </div>
-            </div>
+            </div>}
 
             {/* Header */}
-            <header style={{ padding:"10px 18px", borderBottom:`1px solid ${t.border}`, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+            {screen !== "fullApp" && <header style={{ padding:"10px 18px", borderBottom:`1px solid ${t.border}`, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
               <div style={{ display:"flex", alignItems:"center", gap:9 }}>
                 <div style={{ width:30, height:30, borderRadius:8, background:`linear-gradient(135deg, ${t.accent}, #0891b2)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15 }}>💊</div>
                 <div>
@@ -145,11 +145,18 @@ export default function LessMedsFree() {
                   {theme==="dark"?"☀️":"🌙"}
                 </button>
               </div>
-            </header>
+            </header>}
 
             {/* Content */}
             <div style={{ flex:1, overflowY:screen==="fullApp"?"hidden":"auto", overflowX:"hidden", paddingBottom:screen==="fullApp"?0:8, scrollbarWidth:"none", display:"flex", flexDirection:"column" }}>
-              {screen==="home" && <HomeScreen t={t} onStart={() => setScreen("checker")} onResources={() => setScreen("resources")} />}
+              {screen==="home" && <HomeScreen t={t} onStart={() => setScreen("checker")} onResources={() => setScreen("resources")} onCode={() => setScreen("physicianCode")} />}
+              {screen==="physicianCode" && <PhysicianCodeScreen t={t} onBack={() => setScreen("home")} onVerified={data => {
+                setPlanType("monthly");
+                setPatientInfo({ firstName:data.patientFirstName, age:data.age, conditions:data.conditions, caregiverName:data.caregiverName||"Caregiver", relationship:data.relationship||"", email:data.email||"", meds:data.meds, ehrImported:true, physician:data.physician, clinic:data.clinic });
+                setResult({ score:data.score, flags:[], medCount:data.meds.length });
+                setMeds(data.meds.map(m => ({ id:m.id, name:m.name, dose:m.dose, freq:m.freq })));
+                setScreen("fullApp");
+              }} />}
               {screen==="checker" && <CheckerScreen t={t} meds={meds} setMeds={setMeds} onResult={r => { setResult(r); setScreen("results"); }} />}
               {screen==="results" && result && <ResultsScreen t={t} result={result} meds={meds} pricingTab={pricingTab} setPricingTab={setPricingTab} onBack={() => setScreen("checker")} onResources={() => setScreen("resources")} onPurchase={plan => { setPlanType(plan); setScreen("paywall"); }} />}
               {screen==="resources" && <ResourcesScreen t={t} activeVideo={activeVideo} setActiveVideo={setActiveVideo} />}
@@ -157,7 +164,7 @@ export default function LessMedsFree() {
               {screen==="patientInfo" && <PatientInfoScreen t={t} planType={planType} prefillMeds={meds} onSubmit={info => { setPatientInfo(info); setScreen(planType==="monthly"?"fullApp":"submitted"); }} onBack={() => setScreen("paywall")} />}
               {screen==="submitted" && <SubmittedScreen t={t} patientInfo={patientInfo} assessmentReady={assessmentReady} onViewAssessment={() => { setScreen("assessment"); setAssessmentBadge(false); }} />}
               {screen==="assessment" && <AssessmentScreen t={t} patientInfo={patientInfo} result={result} meds={meds} assessmentReady={assessmentReady} />}
-              {screen==="fullApp" && <FullAppScreen patientInfo={patientInfo} result={result} prefillMeds={meds} />}
+              {screen==="fullApp" && <FullAppScreen patientInfo={patientInfo} result={result} prefillMeds={meds} onLogout={() => { setPlanType(null); setPatientInfo(null); setResult(null); setMeds([]); setScreen("home"); }} />}
             </div>
 
             {/* Bottom Nav */}
@@ -180,9 +187,9 @@ export default function LessMedsFree() {
             )}
 
             {/* Home indicator */}
-            <div style={{ height:20, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:"0 0 34px 34px" }}>
+            {screen !== "fullApp" && <div style={{ height:20, background:t.navBg, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, borderRadius:"0 0 34px 34px" }}>
               <div style={{ width:120, height:4, background:t.border, borderRadius:2 }} />
-            </div>
+            </div>}
           </div>
         </div>
       </div>
@@ -197,8 +204,190 @@ export default function LessMedsFree() {
   );
 }
 
+// ─── EHR MOCK DATA (physician code lookup) ───────────────────────────────────
+const EHR_CODES = {
+  "DRPATEL01": {
+    patientFirstName: "Eleanor",
+    patientLastName: "Whitmore",
+    dob: "1947-03-12",
+    age: 78,
+    physician: "Dr. Rajesh Patel, MD",
+    clinic: "Riverside Geriatric Associates",
+    score: 82,
+    conditions: ["Hypertension","Atrial Fibrillation","Osteoporosis","Depression/Anxiety","Kidney Disease"],
+    meds: [
+      { id:"e1", name:"Warfarin", dose:"5mg", freq:"Once daily", time:"8:00 AM", taken:false, color:"#ef4444", flag:"⚠️ INR monitoring required" },
+      { id:"e2", name:"Metformin", dose:"1000mg", freq:"Twice daily", time:"8:00 AM", taken:true, color:"#3b82f6", flag:null },
+      { id:"e3", name:"Lisinopril", dose:"10mg", freq:"Once daily", time:"8:00 AM", taken:false, color:"#8b5cf6", flag:"⚠️ Monitor potassium & renal function" },
+      { id:"e4", name:"Aspirin", dose:"81mg", freq:"Once daily", time:"12:00 PM", taken:false, color:"#f59e0b", flag:"🔴 Interaction: Warfarin + Aspirin" },
+      { id:"e5", name:"Atorvastatin", dose:"40mg", freq:"Once daily", time:"8:00 PM", taken:false, color:"#06b6d4", flag:null },
+      { id:"e6", name:"Alendronate", dose:"70mg", freq:"Weekly", time:"Monday AM", taken:false, color:"#ec4899", flag:null },
+      { id:"e7", name:"Potassium Chloride", dose:"20mEq", freq:"Once daily", time:"8:00 AM", taken:false, color:"#22c55e", flag:"⚠️ Monitor with Lisinopril" },
+    ],
+    alerts: [
+      { id:"a1", type:"critical", msg:"Warfarin + Aspirin interaction flagged", time:"2 hrs ago" },
+      { id:"a2", type:"warning", msg:"Renal function — review Metformin dose", time:"Today" },
+      { id:"a3", type:"info", msg:"Medication review scheduled Feb 25", time:"Yesterday" },
+    ],
+    messages: [
+      { id:"m1", from:"Dr. Patel", text:"Eleanor's Warfarin dose was adjusted last week. Please ensure she takes it at the same time daily and watch for unusual bruising.", time:"9:14 AM", outgoing:false },
+      { id:"m2", from:"Pharm. Chen", text:"I've reviewed the medication list. The Aspirin and Warfarin combination needs discussion at the next visit — I'll flag this for Dr. Patel.", time:"11:05 AM", outgoing:false },
+    ],
+    caregiverName: "",
+    relationship: "",
+    email: "",
+  },
+  "DRCHEN22": {
+    patientFirstName: "Harold",
+    patientLastName: "Simmons",
+    dob: "1942-07-04",
+    age: 83,
+    physician: "Dr. Susan Chen, MD",
+    clinic: "Oakwood Family Medicine",
+    score: 71,
+    conditions: ["Diabetes","Heart Disease","COPD","Arthritis","Thyroid Disorder"],
+    meds: [
+      { id:"e1", name:"Insulin Glargine", dose:"20 units", freq:"Once daily", time:"8:00 PM", taken:false, color:"#3b82f6", flag:"⚠️ Hypoglycemia risk — monitor glucose" },
+      { id:"e2", name:"Metoprolol", dose:"50mg", freq:"Twice daily", time:"8:00 AM", taken:true, color:"#8b5cf6", flag:null },
+      { id:"e3", name:"Albuterol", dose:"90mcg", freq:"As needed", time:"As needed", taken:false, color:"#06b6d4", flag:null },
+      { id:"e4", name:"Levothyroxine", dose:"75mcg", freq:"Once daily", time:"7:00 AM", taken:true, color:"#f59e0b", flag:"⚠️ Take 30 min before food" },
+      { id:"e5", name:"Meloxicam", dose:"15mg", freq:"Once daily", time:"12:00 PM", taken:false, color:"#ef4444", flag:"🔴 NSAIDs — caution with heart disease" },
+      { id:"e6", name:"Omeprazole", dose:"20mg", freq:"Once daily", time:"8:00 AM", taken:true, color:"#22c55e", flag:null },
+    ],
+    alerts: [
+      { id:"a1", type:"warning", msg:"Glucose trending high this week", time:"Today" },
+      { id:"a2", type:"critical", msg:"NSAIDs flagged — heart disease contraindication", time:"3 hrs ago" },
+    ],
+    messages: [
+      { id:"m1", from:"Dr. Chen", text:"Harold's A1C came back at 8.2. Please make sure he's taking his Insulin at the same time each evening and eating consistently.", time:"10:30 AM", outgoing:false },
+    ],
+    caregiverName: "",
+    relationship: "",
+    email: "",
+  },
+};
+
+// ─── PHYSICIAN CODE SCREEN ────────────────────────────────────────────────────
+function PhysicianCodeScreen({ t, onBack, onVerified }) {
+  const [step, setStep] = useState("code"); // code | verify | loading
+  const [code, setCode] = useState("");
+  const [codeError, setCodeError] = useState("");
+  const [ehrData, setEhrData] = useState(null);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [dob, setDob] = useState("");
+  const [verifyError, setVerifyError] = useState("");
+  const iS = inputStyle(t);
+
+  function submitCode() {
+    const found = EHR_CODES[code.trim().toUpperCase()];
+    if (!found) { setCodeError("Code not found. Please check with your physician's office."); return; }
+    setEhrData(found);
+    setCodeError("");
+    setStep("verify");
+  }
+
+  function submitVerify() {
+    if (!firstName.trim() || !lastName.trim() || !dob) { setVerifyError("Please fill in all fields."); return; }
+    const dobMatch = ehrData.dob === dob;
+    const firstMatch = firstName.trim().toLowerCase() === ehrData.patientFirstName.toLowerCase();
+    const lastMatch = lastName.trim().toLowerCase() === ehrData.patientLastName.toLowerCase();
+    if (!dobMatch || !firstMatch || !lastMatch) { setVerifyError("Information does not match our records. Please check with your physician's office."); return; }
+    setVerifyError("");
+    setStep("loading");
+    setTimeout(() => {
+      onVerified(ehrData);
+    }, 2800);
+  }
+
+  return (
+    <div style={{ padding:"22px 18px" }}>
+      <button onClick={onBack} style={{ background:"none", border:"none", color:t.accent, fontSize:13, cursor:"pointer", fontFamily:font, padding:0, marginBottom:16, display:"flex", alignItems:"center", gap:5 }}>← Back</button>
+
+      {step === "code" && (
+        <>
+          <div style={{ textAlign:"center", marginBottom:20 }}>
+            <div style={{ width:60, height:60, borderRadius:16, background:t.accentDim, border:`2px solid ${t.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:28, margin:"0 auto 12px" }}>🏥</div>
+            <h2 style={{ fontFamily:serif, fontSize:22, fontWeight:400, margin:"0 0 6px" }}>Physician Access Code</h2>
+            <p style={{ color:t.textSub, fontSize:13, lineHeight:1.6, margin:0 }}>Your physician's office provided a code to securely import your loved one's health records.</p>
+          </div>
+          <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:13, padding:16, marginBottom:16 }}>
+            <LabeledField label="Enter Your Code" t={t}>
+              <input
+                value={code}
+                onChange={e => { setCode(e.target.value.toUpperCase()); setCodeError(""); }}
+                onKeyDown={e => e.key === "Enter" && submitCode()}
+                placeholder="e.g. DRSMITH01"
+                style={{ ...iS, textTransform:"uppercase", letterSpacing:2, fontSize:16, fontWeight:600, textAlign:"center" }}
+                autoComplete="off"
+              />
+            </LabeledField>
+            {codeError && <div style={{ color:t.danger, fontSize:12, marginTop:6 }}>{codeError}</div>}
+          </div>
+          <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:11, padding:"11px 13px", marginBottom:18, display:"flex", gap:9, alignItems:"flex-start" }}>
+            <span style={{ fontSize:16 }}>🔒</span>
+            <div style={{ fontSize:11, color:t.textSub, lineHeight:1.5 }}>This code connects your account to your physician's EHR system. Patient data is transmitted using HIPAA-compliant encryption. Your loved one's records will never be stored on this device unencrypted.</div>
+          </div>
+          <Btn t={t} disabled={code.trim().length < 4} onClick={submitCode}>Verify Code →</Btn>
+          <p style={{ color:t.textMuted, fontSize:11, textAlign:"center", marginTop:8 }}>Don't have a code? <span style={{ color:t.accent, cursor:"pointer" }} onClick={onBack}>Start the free check instead</span></p>
+        </>
+      )}
+
+      {step === "verify" && ehrData && (
+        <>
+          <div style={{ background:t.successDim || t.surface, border:`1px solid ${t.success}44`, borderRadius:11, padding:"11px 13px", marginBottom:18, display:"flex", gap:9, alignItems:"center" }}>
+            <span style={{ fontSize:18 }}>✅</span>
+            <div>
+              <div style={{ fontSize:13, fontWeight:700, color:t.success }}>Code verified</div>
+              <div style={{ fontSize:11, color:t.textSub, marginTop:1 }}>{ehrData.physician} · {ehrData.clinic}</div>
+            </div>
+          </div>
+          <h2 style={{ fontFamily:serif, fontSize:20, fontWeight:400, margin:"0 0 6px" }}>Verify Patient Identity</h2>
+          <p style={{ color:t.textSub, fontSize:13, lineHeight:1.6, margin:"0 0 16px" }}>To protect patient privacy, please confirm the following information. This is required under HIPAA before records can be released.</p>
+          <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:13, padding:16, marginBottom:14 }}>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:2 }}>
+              <LabeledField label="Patient First Name" t={t}>
+                <input value={firstName} onChange={e => { setFirstName(e.target.value); setVerifyError(""); }} placeholder="e.g. Eleanor" style={iS} />
+              </LabeledField>
+              <LabeledField label="Patient Last Name" t={t}>
+                <input value={lastName} onChange={e => { setLastName(e.target.value); setVerifyError(""); }} placeholder="e.g. Whitmore" style={iS} />
+              </LabeledField>
+            </div>
+            <LabeledField label="Date of Birth" t={t}>
+              <input value={dob} onChange={e => { setDob(e.target.value); setVerifyError(""); }} type="date" style={iS} />
+            </LabeledField>
+            {verifyError && <div style={{ color:t.danger, fontSize:12, marginTop:6, lineHeight:1.5 }}>{verifyError}</div>}
+          </div>
+          <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:11, padding:"10px 12px", marginBottom:16, display:"flex", gap:8, alignItems:"flex-start" }}>
+            <span style={{ fontSize:14 }}>🛡️</span>
+            <div style={{ fontSize:11, color:t.textMuted, lineHeight:1.5 }}>HIPAA § 164.514(b) — De-identification standard. Name and date of birth are used solely to verify authorization. They are not stored or transmitted after verification.</div>
+          </div>
+          <Btn t={t} disabled={!firstName.trim() || !lastName.trim() || !dob} onClick={submitVerify}>Confirm & Import Records →</Btn>
+        </>
+      )}
+
+      {step === "loading" && (
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:400, gap:16 }}>
+          <div style={{ width:64, height:64, borderRadius:18, background:t.accentDim, border:`2px solid ${t.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:30 }}>🏥</div>
+          <div style={{ fontFamily:serif, fontSize:20, fontWeight:400, textAlign:"center" }}>Importing Records</div>
+          <p style={{ color:t.textSub, fontSize:13, textAlign:"center", lineHeight:1.6, margin:0 }}>Securely retrieving health records from {ehrData?.clinic}…</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:8, width:"100%", marginTop:8 }}>
+            {["Authenticating EHR connection…","Retrieving medication list…","Importing lab values & scores…","Applying clinical flags…"].map((step, i) => (
+              <div key={i} style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 13px", background:t.surface, border:`1px solid ${t.border}`, borderRadius:9 }}>
+                <div style={{ width:16, height:16, borderRadius:"50%", border:`2px solid ${t.accent}`, borderTopColor:"transparent", animation:"spin 0.8s linear infinite", flexShrink:0 }} />
+                <span style={{ fontSize:12, color:t.textSub }}>{step}</span>
+              </div>
+            ))}
+          </div>
+          <p style={{ color:t.textMuted, fontSize:11, textAlign:"center", marginTop:4 }}>🔒 256-bit SSL · HIPAA-compliant transfer</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── HOME ─────────────────────────────────────────────────────────────────────
-function HomeScreen({ t, onStart, onResources }) {
+function HomeScreen({ t, onStart, onResources, onCode }) {
   const stats = [{ value:"40%", label:"of 65+ take 5+ meds daily" },{ value:"2×", label:"higher fall risk" },{ value:"30%", label:"hospital admissions drug-related" }];
   return (
     <div style={{ paddingBottom:24 }}>
@@ -214,6 +403,16 @@ function HomeScreen({ t, onStart, onResources }) {
           <p style={{ color:t.textSub, fontSize:13, lineHeight:1.6, margin:"0 0 18px" }}>Polypharmacy is one of the most under-recognized risks for seniors. Check the risk in under 2 minutes.</p>
           <Btn t={t} onClick={onStart}>Start Free Medication Check →</Btn>
           <p style={{ color:t.textMuted, fontSize:11, textAlign:"center", marginTop:6 }}>No sign-up required • No PHI collected</p>
+          <div style={{ marginTop:14, padding:"12px 14px", background:`${t.accent}11`, border:`1px solid ${t.accent}33`, borderRadius:11, display:"flex", alignItems:"center", justifyContent:"space-between", gap:10 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:9 }}>
+              <span style={{ fontSize:20 }}>🏥</span>
+              <div>
+                <div style={{ fontSize:12, fontWeight:700, color:t.text }}>Have a code from your physician?</div>
+                <div style={{ fontSize:11, color:t.textSub, marginTop:1 }}>Import your loved one's records securely.</div>
+              </div>
+            </div>
+            <button onClick={onCode} style={{ background:`linear-gradient(135deg, ${t.accent}, #0891b2)`, border:"none", borderRadius:9, padding:"8px 13px", color:"#fff", fontSize:11, fontWeight:700, cursor:"pointer", fontFamily:font, whiteSpace:"nowrap", flexShrink:0 }}>Enter Code →</button>
+          </div>
         </div>
       </div>
       <div style={{ padding:"18px 18px 0", display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:9 }}>
@@ -246,27 +445,118 @@ function HomeScreen({ t, onStart, onResources }) {
   );
 }
 
+// ─── Medication Autocomplete List ─────────────────────────────────────────────
+const MED_LIST = [
+  "Acetaminophen","Albuterol","Alendronate","Allopurinol","Alprazolam","Amlodipine","Amoxicillin",
+  "Atenolol","Atorvastatin","Azithromycin","Benazepril","Bisoprolol","Carvedilol","Cephalexin",
+  "Ciprofloxacin","Citalopram","Clonazepam","Clopidogrel","Cyclobenzaprine","Digoxin",
+  "Diltiazem","Doxycycline","Duloxetine","Escitalopram","Esomeprazole","Finasteride","Fluoxetine",
+  "Furosemide","Gabapentin","Glipizide","Hydrochlorothiazide","Hydrocodone","Hydroxychloroquine",
+  "Ibuprofen","Insulin Glargine","Isosorbide","Lansoprazole","Levothyroxine","Lisinopril",
+  "Loratadine","Lorazepam","Losartan","Lovastatin","Meloxicam","Metformin","Metoprolol",
+  "Montelukast","Morphine","Naproxen","Omeprazole","Ondansetron","Oxycodone","Pantoprazole",
+  "Potassium Chloride","Pravastatin","Prednisone","Propranolol","Rosuvastatin","Sertraline",
+  "Simvastatin","Spironolactone","Tamsulosin","Tramadol","Trazodone","Venlafaxine",
+  "Verapamil","Warfarin","Zolpidem","Aspirin","Amiodarone","Lithium","Methotrexate",
+];
+
 // ─── CHECKER ──────────────────────────────────────────────────────────────────
 function CheckerScreen({ t, meds, setMeds, onResult }) {
-  const [name, setName] = useState(""); const [dose, setDose] = useState(""); const [freq, setFreq] = useState("Once daily"); const [error, setError] = useState("");
+  const [name, setName] = useState("");
+  const [dose, setDose] = useState("");
+  const [freq, setFreq] = useState("Once daily");
+  const [error, setError] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [highlightIdx, setHighlightIdx] = useState(-1);
   const inputRef = useRef();
   const freqs = ["Once daily","Twice daily","Three times daily","Four times daily","Every other day","Weekly","As needed"];
   const iS = inputStyle(t);
-  const addMed = () => { if (!name.trim()) { setError("Please enter a medication name."); return; } setMeds(p => [...p, { id:Date.now(), name:name.trim(), dose:dose.trim()||"—", freq }]); setName(""); setDose(""); setError(""); inputRef.current?.focus(); };
+
+  const suggestions = name.trim().length >= 1
+    ? MED_LIST.filter(m => m.toLowerCase().includes(name.toLowerCase()) && m.toLowerCase() !== name.toLowerCase()).slice(0, 6)
+    : [];
+
+  const addMed = (medName) => {
+    const finalName = medName || name;
+    if (!finalName.trim()) { setError("Please enter a medication name."); return; }
+    setMeds(p => [...p, { id:Date.now(), name:finalName.trim(), dose:dose.trim()||"—", freq }]);
+    setName(""); setDose(""); setError(""); setShowSuggestions(false); setHighlightIdx(-1);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (!showSuggestions || suggestions.length === 0) {
+      if (e.key === "Enter") addMed();
+      return;
+    }
+    if (e.key === "ArrowDown") { e.preventDefault(); setHighlightIdx(i => Math.min(i+1, suggestions.length-1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlightIdx(i => Math.max(i-1, -1)); }
+    else if (e.key === "Enter") { e.preventDefault(); highlightIdx >= 0 ? addMed(suggestions[highlightIdx]) : addMed(); }
+    else if (e.key === "Escape") { setShowSuggestions(false); setHighlightIdx(-1); }
+  };
+
   return (
     <div style={{ padding:"20px 18px" }}>
       <h2 style={{ fontFamily:serif, fontSize:22, fontWeight:400, margin:"0 0 3px" }}>Medication Checker</h2>
       <p style={{ color:t.textSub, fontSize:13, margin:"0 0 18px" }}>No names or identifying information needed.</p>
       <div style={{ background:t.surface, border:`1px solid ${t.border}`, borderRadius:13, padding:"14px", marginBottom:14 }}>
         <LabeledField label="Medication Name *" t={t}>
-          <input ref={inputRef} value={name} onChange={e => { setName(e.target.value); setError(""); }} onKeyDown={e => e.key==="Enter" && addMed()} placeholder="e.g. Metformin, Lisinopril..." style={iS} />
+          <div style={{ position:"relative" }}>
+            <input
+              ref={inputRef}
+              value={name}
+              onChange={e => { setName(e.target.value); setError(""); setShowSuggestions(true); setHighlightIdx(-1); }}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="e.g. Metformin, Lisinopril..."
+              style={iS}
+              autoComplete="off"
+            />
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{
+                position:"absolute", top:"calc(100% + 4px)", left:0, right:0, zIndex:50,
+                background:t.surface, border:`1px solid ${t.accent}66`,
+                borderRadius:10, overflow:"hidden",
+                boxShadow:`0 8px 24px rgba(0,0,0,0.25)`,
+                animation:"fadeIn 0.1s ease",
+              }}>
+                {suggestions.map((s, i) => {
+                  const matchStart = s.toLowerCase().indexOf(name.toLowerCase());
+                  const before = s.slice(0, matchStart);
+                  const match = s.slice(matchStart, matchStart + name.length);
+                  const after = s.slice(matchStart + name.length);
+                  return (
+                    <div
+                      key={s}
+                      onMouseDown={() => addMed(s)}
+                      style={{
+                        padding:"9px 13px", cursor:"pointer", fontSize:13,
+                        background: i === highlightIdx ? t.accentDim : "transparent",
+                        borderBottom: i < suggestions.length-1 ? `1px solid ${t.border}` : "none",
+                        display:"flex", alignItems:"center", gap:8,
+                        transition:"background 0.1s",
+                      }}
+                    >
+                      <span style={{ fontSize:12 }}>💊</span>
+                      <span style={{ color:t.textSub }}>
+                        {before}
+                        <strong style={{ color:t.accent }}>{match}</strong>
+                        {after}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </LabeledField>
         <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:9, marginBottom:4 }}>
           <LabeledField label="Dose" t={t}><input value={dose} onChange={e => setDose(e.target.value)} placeholder="e.g. 500mg" style={iS} /></LabeledField>
           <LabeledField label="Frequency" t={t}><select value={freq} onChange={e => setFreq(e.target.value)} style={{ ...iS, appearance:"none", cursor:"pointer" }}>{freqs.map(f => <option key={f}>{f}</option>)}</select></LabeledField>
         </div>
         {error && <div style={{ color:t.danger, fontSize:12, marginBottom:8 }}>{error}</div>}
-        <Btn t={t} variant="outline" onClick={addMed}>+ Add Medication</Btn>
+        <Btn t={t} variant="outline" onClick={() => addMed()}>+ Add Medication</Btn>
       </div>
       {meds.length > 0 && (
         <div style={{ marginBottom:12 }}>
@@ -369,8 +659,8 @@ function PaywallScreen({ t, planType, onBack, onComplete }) {
   const isMonthly = planType==="monthly";
   const fmtCard = v => v.replace(/\D/g,"").slice(0,16).replace(/(.{4})/g,"$1 ").trim();
   const fmtExp = v => { const d=v.replace(/\D/g,"").slice(0,4); return d.length>2?d.slice(0,2)+"/"+d.slice(2):d; };
-  const ready = cardNum.replace(/\s/g,"").length===16 && expiry.length===5 && cvc.length>=3 && name.trim();
-  const handlePay = () => { if(!ready) return; setProcessing(true); setTimeout(()=>{ setProcessing(false); setDone(true); setTimeout(onComplete,1200); },2200); };
+  const ready = true; // Payment button always enabled for prototype
+  const handlePay = () => { setProcessing(true); setTimeout(()=>{ setProcessing(false); setDone(true); setTimeout(onComplete,1200); },2200); };
   const iS = inputStyle(t);
   return (
     <div style={{ padding:"20px 18px" }}>
@@ -714,7 +1004,7 @@ function FALogo({ th }) {
   );
 }
 
-function FullAppScreen({ patientInfo, result, prefillMeds }) {
+function FullAppScreen({ patientInfo, result, prefillMeds, onLogout }) {
   const [faTheme, setFaTheme] = useState("dark");
   const ft = FA_THEMES[faTheme];
   const [faScreen, setFaScreen] = useState("home");
@@ -736,7 +1026,7 @@ function FullAppScreen({ patientInfo, result, prefillMeds }) {
   const [showSymForm, setShowSymForm] = useState(false);
   const [selSymptoms, setSelSymptoms] = useState([]);
   const [symNotes, setSymNotes] = useState("");
-  const [faMessages, setFaMessages] = useState(FA_MOCK_MESSAGES_INIT);
+  const [faMessages, setFaMessages] = useState(patientInfo?.ehrImported && patientInfo?.messages ? patientInfo.messages : FA_MOCK_MESSAGES_INIT);
   const [faMsgInput, setFaMsgInput] = useState("");
   const [faToasts, setFaToasts] = useState([]);
 
@@ -774,11 +1064,12 @@ function FullAppScreen({ patientInfo, result, prefillMeds }) {
     { id:"meds", icon:"◎", label:"Meds" },
     { id:"symptoms", icon:"♥", label:"Symptoms" },
     { id:"messages", icon:"◈", label:"Messages" },
+    { id:"resources", icon:"▶", label:"Resources" },
     { id:"settings", icon:"◍", label:"Settings" },
   ];
 
   return (
-    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:ft.appBg, transition:"background 0.3s", fontFamily:"'DM Sans',sans-serif" }}>
+    <div style={{ flex:1, display:"flex", flexDirection:"column", overflow:"hidden", background:ft.appBg, transition:"background 0.3s", fontFamily:"'DM Sans',sans-serif", borderRadius:34 }}>
       {/* Header */}
       <div style={{ padding:"10px 20px 12px", background:ft.headerBg, borderBottom:`1px solid ${ft.border}`, flexShrink:0, boxShadow:faTheme==="light"?"0 1px 4px rgba(0,0,0,0.06)":"none" }}>
         <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
@@ -789,12 +1080,13 @@ function FullAppScreen({ patientInfo, result, prefillMeds }) {
           </div>
         </div>
         <div style={{ fontSize:12, color:ft.textSecondary, marginTop:3 }}>{patientName} · Age {patientAge}</div>
+        {patientInfo?.ehrImported && <div style={{ fontSize:10, color:ft.success, marginTop:2, display:"flex", alignItems:"center", gap:4 }}><span>🏥</span>{patientInfo.physician} · EHR Connected</div>}
       </div>
 
       {/* Content */}
-      <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:faScreen==="messages"?0:14, background:ft.appBg, scrollbarWidth:"none" }}>
+      <div style={{ flex:1, overflowY:"auto", overflowX:"hidden", padding:(faScreen==="messages"||faScreen==="resources")?0:14, background:ft.appBg, scrollbarWidth:"none" }}>
         {faScreen==="home" && (
-          <FAHomeScreen ft={ft} faMeds={faMeds} takenCount={takenCount} alerts={FA_MOCK_ALERTS} onNavigate={setFaScreen} onMarkTaken={markTaken} score={score} appointments={FA_APPOINTMENTS} />
+          <FAHomeScreen ft={ft} faMeds={faMeds} takenCount={takenCount} alerts={patientInfo?.ehrImported && patientInfo?.alerts ? patientInfo.alerts : FA_MOCK_ALERTS} onNavigate={setFaScreen} onMarkTaken={markTaken} score={score} appointments={FA_APPOINTMENTS} />
         )}
         {faScreen==="meds" && <FAMedsScreen ft={ft} faMeds={faMeds} onMark={markTaken} />}
         {faScreen==="symptoms" && (
@@ -805,7 +1097,8 @@ function FullAppScreen({ patientInfo, result, prefillMeds }) {
         {faScreen==="messages" && (
           <FAMessagesScreen ft={ft} messages={faMessages} msgInput={faMsgInput} setMsgInput={setFaMsgInput} onSend={sendMessage} />
         )}
-        {faScreen==="settings" && <FASettingsScreen ft={ft} faTheme={faTheme} setFaTheme={setFaTheme} patientName={patientName} patientAge={patientAge} caregiverName={patientInfo?.caregiverName || "Caregiver"} />}
+        {faScreen==="settings" && <FASettingsScreen ft={ft} faTheme={faTheme} setFaTheme={setFaTheme} patientName={patientName} patientAge={patientAge} caregiverName={patientInfo?.caregiverName || "Caregiver"} onLogout={onLogout} />}
+        {faScreen==="resources" && <FAResourcesScreen ft={ft} />}
       </div>
 
       {/* Bottom Nav */}
@@ -923,6 +1216,7 @@ function FAMedsScreen({ ft, faMeds, onMark }) {
               <div style={{ flex:1 }}>
                 <div style={{ fontSize:13, fontWeight:600, color:ft.textPrimary }}>{m.name}</div>
                 <div style={{ fontSize:11, color:ft.textSecondary, marginTop:1 }}>{m.dose}</div>
+                {m.flag && <div style={{ fontSize:10, color:m.flag.startsWith("🔴")?ft.danger:ft.warning, marginTop:3, lineHeight:1.4 }}>{m.flag}</div>}
               </div>
               {m.taken ? <span style={{ fontSize:17 }}>✅</span> : (
                 <button onClick={() => onMark(m.id)} style={{ padding:"5px 11px", borderRadius:8, border:`1px solid ${ft.accent}`, background:ft.accentBg, color:ft.accent, fontSize:11, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Take</button>
@@ -1003,7 +1297,8 @@ function FAMessagesScreen({ ft, messages, msgInput, setMsgInput, onSend }) {
   );
 }
 
-function FASettingsScreen({ ft, faTheme, setFaTheme, patientName, patientAge, caregiverName }) {
+function FASettingsScreen({ ft, faTheme, setFaTheme, patientName, patientAge, caregiverName, onLogout }) {
+  const [confirmLogout, setConfirmLogout] = useState(false);
   return (
     <div>
       <div style={{ fontSize:14, fontWeight:700, color:ft.textPrimary, marginBottom:14 }}>Settings</div>
@@ -1044,6 +1339,80 @@ function FASettingsScreen({ ft, faTheme, setFaTheme, patientName, patientAge, ca
           ))}
         </div>
       ))}
+
+      {/* Logout */}
+      {!confirmLogout ? (
+        <button onClick={() => setConfirmLogout(true)} style={{ width:"100%", marginTop:6, padding:"13px", borderRadius:12, border:`1px solid ${ft.danger}44`, background:ft.dangerBg, color:ft.danger, fontSize:13, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+          ⎋ Sign Out
+        </button>
+      ) : (
+        <div style={{ background:ft.dangerBg, border:`1px solid ${ft.danger}44`, borderRadius:12, padding:16, marginTop:6 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:ft.danger, marginBottom:4 }}>Sign out of LessMeds?</div>
+          <div style={{ fontSize:12, color:ft.textSecondary, marginBottom:14, lineHeight:1.5 }}>Your patient data and care team connection will be removed from this device.</div>
+          <div style={{ display:"flex", gap:9 }}>
+            <button onClick={() => setConfirmLogout(false)} style={{ flex:1, padding:"10px", borderRadius:9, border:`1px solid ${ft.border}`, background:"transparent", color:ft.textSecondary, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Cancel</button>
+            <button onClick={onLogout} style={{ flex:2, padding:"10px", borderRadius:9, border:"none", background:ft.danger, color:"#fff", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Yes, Sign Out</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Full App Resources Screen ────────────────────────────────────────────────
+function FAResourcesScreen({ ft }) {
+  const [activeVideo, setActiveVideo] = useState(null);
+  const tagColors = {
+    accent: [ft.accentBg, ft.accent],
+    success: [ft.successBg, ft.success],
+    warning: [ft.warningBg, ft.warning],
+    danger:  [ft.dangerBg,  ft.danger],
+  };
+  return (
+    <div style={{ padding:"16px 14px", overflowY:"auto" }}>
+      {/* Dr. Canterbury bio */}
+      <div style={{ background:ft.cardBg, border:`1px solid ${ft.accent}44`, borderRadius:14, padding:"13px", marginBottom:16, display:"flex", gap:11, alignItems:"center" }}>
+        <div style={{ width:46, height:46, borderRadius:"50%", flexShrink:0, background:ft.accentBg, border:`2px solid ${ft.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>👨‍⚕️</div>
+        <div>
+          <div style={{ fontWeight:700, fontSize:13, color:ft.textPrimary }}>Dr. DeLon Canterbury</div>
+          <div style={{ color:ft.accent, fontSize:11, fontWeight:500 }}>MD · Geriatric Medicine</div>
+          <div style={{ color:ft.textSecondary, fontSize:11, marginTop:3, lineHeight:1.4 }}>Nationally recognized expert in polypharmacy and medication safety for older adults.</div>
+        </div>
+      </div>
+      {/* Videos */}
+      <div style={{ fontSize:10, color:ft.textMuted, fontWeight:700, letterSpacing:1, textTransform:"uppercase", marginBottom:10 }}>{VIDEOS.length} Videos & Talks</div>
+      {VIDEOS.map(v => {
+        const [tagBg, tagFg] = tagColors[v.tagColor] || tagColors.accent;
+        const isActive = activeVideo === v.id;
+        return (
+          <div key={v.id} onClick={() => setActiveVideo(isActive ? null : v.id)}
+            style={{ background:ft.cardBg, border:`1px solid ${isActive ? ft.accent : ft.border}`, borderRadius:12, padding:"12px", marginBottom:9, cursor:"pointer", transition:"border-color 0.2s", boxShadow:isActive?`0 0 0 1px ${ft.accent}33, 0 4px 16px rgba(0,0,0,0.15)`:"none" }}>
+            <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
+              <div style={{ width:42, height:42, borderRadius:8, flexShrink:0, background:isActive?ft.accentBg:ft.cardBg2, border:`1px solid ${isActive?ft.accent:ft.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:19, transition:"all 0.2s" }}>
+                {isActive ? "▶" : v.thumb}
+              </div>
+              <div style={{ flex:1, minWidth:0 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", gap:6, marginBottom:2 }}>
+                  <div style={{ fontWeight:600, fontSize:12, lineHeight:1.3, color:ft.textPrimary, flex:1 }}>{v.title}</div>
+                  <span style={{ background:tagBg, color:tagFg, borderRadius:5, padding:"2px 6px", fontSize:8, fontWeight:700, letterSpacing:0.4, textTransform:"uppercase", flexShrink:0 }}>{v.tag}</span>
+                </div>
+                <div style={{ color:ft.accent, fontSize:10, fontWeight:500, marginBottom:3 }}>{v.subtitle} · {v.year}</div>
+                <div style={{ color:ft.textSecondary, fontSize:11, lineHeight:1.5 }}>{v.desc}</div>
+              </div>
+            </div>
+            {isActive && (
+              <div style={{ marginTop:10, background:ft.cardBg2, border:`1px solid ${ft.border}`, borderRadius:8, height:140, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6 }}>
+                <div style={{ width:40, height:40, borderRadius:"50%", background:ft.accentBg, border:`1px solid ${ft.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, color:ft.accent }}>▶</div>
+                <div style={{ color:ft.textSecondary, fontSize:12, fontWeight:500 }}>YouTube embed goes here</div>
+                <div style={{ color:ft.textMuted, fontSize:10 }}>Paste Dr. Canterbury's video URL</div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+      <div style={{ padding:"10px 13px", background:ft.cardBg2, borderRadius:10, color:ft.textMuted, fontSize:11, lineHeight:1.5, textAlign:"center", marginTop:4 }}>
+        More videos added regularly. Subscribe for the latest from Dr. Canterbury.
+      </div>
     </div>
   );
 }
