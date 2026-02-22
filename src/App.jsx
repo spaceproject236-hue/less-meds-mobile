@@ -166,8 +166,22 @@ export default function CaregiverApp() {
   }
   function logSymptoms() {
     if(!selectedSymptoms.length) return;
-    const entry = { id:Date.now(), symptoms:selectedSymptoms, notes:symptomNotes, time:new Date().toLocaleTimeString(), date:new Date().toLocaleDateString() };
+    const entry = {
+      id: Date.now(),
+      caseId: "C001",
+      patientName: "Eleanor Whitmore",
+      symptoms: selectedSymptoms,
+      notes: symptomNotes,
+      reportedBy: "Caregiver (Mobile App)",
+      time: new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"}),
+      date: new Date().toLocaleDateString(),
+      timestamp: new Date().toISOString(),
+    };
     setSymptoms(prev=>[entry,...prev]);
+    // Write to shared store so the clinical web app receives it in real time
+    if (typeof symptomStore !== "undefined") {
+      symptomStore.add(entry);
+    }
     setSelectedSymptoms([]); setSymptomNotes(""); setShowSymptomForm(false);
     toast("Symptoms reported to care team","info");
   }
