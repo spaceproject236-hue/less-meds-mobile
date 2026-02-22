@@ -186,103 +186,161 @@ export default function LessMedsFree() {
     { id: "resources", icon: "▶", label: "Resources" },
   ];
 
-  const appStyle = {
+  const phoneFrameOuter = {
+    minHeight: "100vh",
+    background: "#0a0a0f",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "40px 20px",
     fontFamily: font,
+  };
+
+  const phoneFrame = {
+    width: 375,
+    height: 780,
+    borderRadius: 44,
+    background: "#1a1a2e",
+    boxShadow: "0 0 0 10px #1a1a2e, 0 0 0 11px #333, 0 40px 80px rgba(0,0,0,0.8)",
+    overflow: "hidden",
+    position: "relative",
+    display: "flex",
+    flexDirection: "column",
+    flexShrink: 0,
+  };
+
+  const phoneScreen = {
+    flex: 1,
     background: t.bg,
     color: t.text,
-    minHeight: "100vh",
-    paddingBottom: 72,
+    display: "flex",
+    flexDirection: "column",
+    overflow: "hidden",
+    borderRadius: 34,
     transition: "background 0.3s, color 0.3s",
   };
 
+  const scrollArea = {
+    flex: 1,
+    overflowY: "auto",
+    overflowX: "hidden",
+    paddingBottom: 8,
+    scrollbarWidth: "none",
+  };
+
   const navStyle = {
-    position: "fixed",
-    bottom: 0,
-    left: 0,
-    right: 0,
     height: 64,
     background: t.navBg,
     borderTop: `1px solid ${t.border}`,
     display: "flex",
     alignItems: "center",
     justifyContent: "space-around",
-    zIndex: 100,
-    backdropFilter: "blur(12px)",
+    flexShrink: 0,
   };
 
   return (
     <>
       <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet" />
-      <div style={appStyle}>
-        {/* Header */}
-        <header style={{
-          padding: "16px 20px",
-          borderBottom: `1px solid ${t.border}`,
-          background: t.navBg,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          position: "sticky",
-          top: 0,
-          zIndex: 50,
-          backdropFilter: "blur(12px)",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={phoneFrameOuter}>
+        <div style={phoneFrame}>
+          {/* Status bar notch */}
+          <div style={{
+            height: 44, background: t.navBg, display: "flex",
+            alignItems: "center", justifyContent: "space-between",
+            padding: "0 24px", flexShrink: 0, borderRadius: "34px 34px 0 0",
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: t.text, fontFamily: font }}>9:41</span>
             <div style={{
-              width: 32, height: 32, borderRadius: 8,
-              background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 16,
-            }}>💊</div>
-            <div>
-              <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 17, fontWeight: 400, letterSpacing: -0.3, lineHeight: 1 }}>
-                Less<span style={{ color: t.accent }}>Meds</span>
-              </div>
-              <div style={{ fontSize: 9, color: t.textMuted, letterSpacing: 1, textTransform: "uppercase", lineHeight: 1.2 }}>Polypharmacy Risk Tool</div>
+              width: 120, height: 28, background: "#111",
+              borderRadius: 14, position: "absolute", left: "50%", transform: "translateX(-50%)",
+            }} />
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: t.text }}>●●●</span>
+              <span style={{ fontSize: 10, color: t.text }}>▲</span>
+              <span style={{ fontSize: 10, color: t.text }}>⬛</span>
             </div>
           </div>
-          <button
-            onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
-            style={{
-              background: t.pillBg, border: `1px solid ${t.border}`, borderRadius: 8,
-              padding: "6px 12px", color: t.textSub, fontSize: 13, cursor: "pointer",
-              fontFamily: font,
-            }}
-          >
-            {theme === "dark" ? "☀️ Light" : "🌙 Dark"}
-          </button>
-        </header>
 
-        {/* Screens */}
-        {screen === "home" && <HomeScreen t={t} theme={theme} onStart={() => setScreen("checker")} onResources={() => setScreen("resources")} />}
-        {screen === "checker" && <CheckerScreen t={t} theme={theme} meds={meds} setMeds={setMeds} onResult={(r) => { setResult(r); setScreen("results"); }} />}
-        {screen === "results" && result && <ResultsScreen t={t} theme={theme} result={result} meds={meds} pricingTab={pricingTab} setPricingTab={setPricingTab} onBack={() => setScreen("checker")} onResources={() => setScreen("resources")} />}
-        {screen === "resources" && <ResourcesScreen t={t} theme={theme} activeVideo={activeVideo} setActiveVideo={setActiveVideo} />}
-
-        {/* Bottom Nav */}
-        <nav style={navStyle}>
-          {navItems.map(item => {
-            const active = screen === item.id || (item.id === "checker" && screen === "results");
-            return (
+          <div style={phoneScreen}>
+            {/* Header */}
+            <header style={{
+              padding: "10px 20px",
+              borderBottom: `1px solid ${t.border}`,
+              background: t.navBg,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              flexShrink: 0,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 30, height: 30, borderRadius: 8,
+                  background: `linear-gradient(135deg, ${t.accent}, #0891b2)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 15,
+                }}>💊</div>
+                <div>
+                  <div style={{ fontFamily: "'DM Serif Display', serif", fontSize: 16, fontWeight: 400, letterSpacing: -0.3, lineHeight: 1 }}>
+                    Less<span style={{ color: t.accent }}>Meds</span>
+                  </div>
+                  <div style={{ fontSize: 8, color: t.textMuted, letterSpacing: 1, textTransform: "uppercase", lineHeight: 1.2 }}>Polypharmacy Risk Tool</div>
+                </div>
+              </div>
               <button
-                key={item.id}
-                onClick={() => setScreen(item.id)}
+                onClick={() => setTheme(th => th === "dark" ? "light" : "dark")}
                 style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                  padding: "8px 20px",
-                  color: active ? t.accent : t.textMuted,
+                  background: t.pillBg, border: `1px solid ${t.border}`, borderRadius: 8,
+                  padding: "5px 10px", color: t.textSub, fontSize: 11, cursor: "pointer",
                   fontFamily: font,
-                  transition: "color 0.2s",
                 }}
               >
-                <span style={{ fontSize: 20 }}>{item.icon}</span>
-                <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, letterSpacing: 0.5 }}>{item.label}</span>
-                {active && <span style={{ width: 4, height: 4, borderRadius: 2, background: t.accent, marginTop: -2 }} />}
+                {theme === "dark" ? "☀️" : "🌙"}
               </button>
-            );
-          })}
-        </nav>
+            </header>
+
+            {/* Scrollable screen content */}
+            <div style={scrollArea}>
+              {screen === "home" && <HomeScreen t={t} theme={theme} onStart={() => setScreen("checker")} onResources={() => setScreen("resources")} />}
+              {screen === "checker" && <CheckerScreen t={t} theme={theme} meds={meds} setMeds={setMeds} onResult={(r) => { setResult(r); setScreen("results"); }} />}
+              {screen === "results" && result && <ResultsScreen t={t} theme={theme} result={result} meds={meds} pricingTab={pricingTab} setPricingTab={setPricingTab} onBack={() => setScreen("checker")} onResources={() => setScreen("resources")} />}
+              {screen === "resources" && <ResourcesScreen t={t} theme={theme} activeVideo={activeVideo} setActiveVideo={setActiveVideo} />}
+            </div>
+
+            {/* Bottom Nav */}
+            <nav style={navStyle}>
+              {navItems.map(item => {
+                const active = screen === item.id || (item.id === "checker" && screen === "results");
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setScreen(item.id)}
+                    style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                      padding: "8px 20px",
+                      color: active ? t.accent : t.textMuted,
+                      fontFamily: font,
+                      transition: "color 0.2s",
+                    }}
+                  >
+                    <span style={{ fontSize: 20 }}>{item.icon}</span>
+                    <span style={{ fontSize: 10, fontWeight: active ? 600 : 400, letterSpacing: 0.5 }}>{item.label}</span>
+                    {active && <span style={{ width: 4, height: 4, borderRadius: 2, background: t.accent, marginTop: -2 }} />}
+                  </button>
+                );
+              })}
+            </nav>
+
+            {/* Home indicator bar */}
+            <div style={{
+              height: 20, background: t.navBg, display: "flex",
+              alignItems: "center", justifyContent: "center", flexShrink: 0,
+              borderRadius: "0 0 34px 34px",
+            }}>
+              <div style={{ width: 120, height: 4, background: t.border, borderRadius: 2 }} />
+            </div>
+          </div>
+        </div>
       </div>
     </>
   );
