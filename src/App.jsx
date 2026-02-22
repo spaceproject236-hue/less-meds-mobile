@@ -176,12 +176,12 @@ const riskLevel = s => s <= 40 ? { label: "Low Risk", color: "success", emoji: "
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
 const VIDEOS = [
-  { id:"v1", title:"The Hidden Danger of Too Many Pills", subtitle:"TEDx Talk • 18 min", desc:"Dr. Canterbury reveals how polypharmacy silently undermines quality of life in elderly patients.", tag:"Featured", tagColor:"accent", thumb:"🎤", year:"2023" },
-  { id:"v2", title:"Deprescribing: The Art of Letting Go", subtitle:"Grand Rounds • 42 min", desc:"Evidence-based frameworks for safely reducing medication burden in patients over 65.", tag:"Clinical", tagColor:"success", thumb:"🏥", year:"2024" },
-  { id:"v3", title:"Talking to Your Doctor About Fewer Meds", subtitle:"Caregiver Guide • 12 min", desc:"Practical conversation starters for family caregivers advocating for deprescribing.", tag:"Caregivers", tagColor:"warning", thumb:"💬", year:"2024" },
-  { id:"v4", title:"Polypharmacy & Dementia Risk", subtitle:"Research Seminar • 28 min", desc:"Emerging research linking high medication burden to accelerated cognitive decline.", tag:"Research", tagColor:"accent", thumb:"🧠", year:"2023" },
-  { id:"v5", title:"Falls, Fractures & the Medication Connection", subtitle:"Patient Safety • 22 min", desc:"How certain medication combinations dramatically increase fall risk.", tag:"Safety", tagColor:"danger", thumb:"⚠️", year:"2024" },
-  { id:"v6", title:"When Less Is More: A Geriatrician's Approach", subtitle:"Interview Series • 35 min", desc:"Dr. Canterbury in conversation with leading geriatricians on building deprescribing into routine care.", tag:"Interview", tagColor:"success", thumb:"🎙️", year:"2025" },
+  { id:"v1", ytId:"WjeeNEFMt7w", title:"The Hidden Danger of Too Many Pills", subtitle:"TEDx Talk • 18 min", desc:"Dr. Canterbury reveals how polypharmacy silently undermines quality of life in elderly patients.", tag:"Featured", tagColor:"accent", thumb:"🎤", year:"2023" },
+  { id:"v2", ytId:"WjeeNEFMt7w", title:"Deprescribing: The Art of Letting Go", subtitle:"Grand Rounds • 42 min", desc:"Evidence-based frameworks for safely reducing medication burden in patients over 65.", tag:"Clinical", tagColor:"success", thumb:"🏥", year:"2024" },
+  { id:"v3", ytId:"J9XliDriZ-M", title:"Talking to Your Doctor About Fewer Meds", subtitle:"Caregiver Guide • 12 min", desc:"Practical conversation starters for family caregivers advocating for deprescribing.", tag:"Caregivers", tagColor:"warning", thumb:"💬", year:"2024" },
+  { id:"v4", ytId:"J9XliDriZ-M", title:"Polypharmacy & Dementia Risk", subtitle:"Research Seminar • 28 min", desc:"Emerging research linking high medication burden to accelerated cognitive decline.", tag:"Research", tagColor:"accent", thumb:"🧠", year:"2023" },
+  { id:"v5", ytId:"QpjzoI4qv3o", title:"Falls, Fractures & the Medication Connection", subtitle:"Patient Safety • 22 min", desc:"How certain medication combinations dramatically increase fall risk.", tag:"Safety", tagColor:"danger", thumb:"⚠️", year:"2024" },
+  { id:"v6", ytId:"QpjzoI4qv3o", title:"When Less Is More: A Geriatrician's Approach", subtitle:"Interview Series • 35 min", desc:"Dr. Canterbury in conversation with leading geriatricians on building deprescribing into routine care.", tag:"Interview", tagColor:"success", thumb:"🎙️", year:"2025" },
 ];
 const CONDITIONS = ["Diabetes","Hypertension","Heart Disease","COPD","Arthritis","Osteoporosis","Depression / Anxiety","Dementia","Kidney Disease","Thyroid Disorder","Atrial Fibrillation","Parkinson's","Cancer","Stroke / TIA"];
 const RELATIONSHIPS = ["Spouse / Partner","Adult Child","Parent","Sibling","Grandchild","Professional Caregiver","Other"];
@@ -1204,7 +1204,7 @@ function OnboardingScreen({ t, patientInfo, onProceed }) {
             {/* Video embed area */}
             {!videoOpen ? (
               <div
-                onClick={() => { setVideoOpen(true); setTimeout(() => setWatched(true), 3000); }}
+                onClick={() => { setVideoOpen(true); setTimeout(() => setWatched(true), 30000); }}
                 style={{ height:172, background:`linear-gradient(135deg, ${t.surfaceAlt}, ${t.bg})`, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10, cursor:"pointer", position:"relative", overflow:"hidden" }}
               >
                 {/* Decorative background rings */}
@@ -1219,10 +1219,14 @@ function OnboardingScreen({ t, patientInfo, onProceed }) {
                 <div style={{ position:"absolute", top:10, right:12, background:t.accentDim, borderRadius:6, padding:"3px 8px", fontSize:9, color:t.accent, fontWeight:700, letterSpacing:0.5 }}>RECOMMENDED</div>
               </div>
             ) : (
-              <div style={{ height:172, background:"#000", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:8 }}>
-                <div style={{ width:44, height:44, borderRadius:"50%", border:`2px solid ${t.accent}`, borderTopColor:"transparent", animation:"spin 0.8s linear infinite" }} />
-                <div style={{ color:"#fff", fontSize:12, opacity:0.7 }}>YouTube embed · Paste your video URL</div>
-                <div style={{ color:t.accent, fontSize:10 }}>youtube.com/embed/YOUR_VIDEO_ID</div>
+              <div style={{ height:172, background:"#000", position:"relative" }}>
+                <iframe
+                  src="https://www.youtube.com/embed/L771z-GnmHM?si=pbleyR5kW2jx_FaR&autoplay=1"
+                  title="How to use the LessMeds Caregiver App"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ width:"100%", height:"100%", border:"none", display:"block" }}
+                />
               </div>
             )}
 
@@ -1274,7 +1278,7 @@ function OnboardingScreen({ t, patientInfo, onProceed }) {
           {!watched && (
             <p style={{ color:t.textMuted, fontSize:11, textAlign:"center", marginTop:8, lineHeight:1.5 }}>
               We recommend watching the intro first —{" "}
-              <span onClick={() => { setVideoOpen(true); setTimeout(() => setWatched(true), 3000); }} style={{ color:t.accent, cursor:"pointer", textDecoration:"underline" }}>
+              <span onClick={() => { setVideoOpen(true); setTimeout(() => setWatched(true), 30000); }} style={{ color:t.accent, cursor:"pointer", textDecoration:"underline" }}>
                 watch now
               </span>{" "}or{" "}
               <span onClick={onProceed} style={{ color:t.textSub, cursor:"pointer", textDecoration:"underline" }}>
@@ -1760,10 +1764,14 @@ function FAResourcesScreen({ ft }) {
               </div>
             </div>
             {isActive && (
-              <div style={{ marginTop:10, background:ft.cardBg2, border:`1px solid ${ft.border}`, borderRadius:8, height:140, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6 }}>
-                <div style={{ width:40, height:40, borderRadius:"50%", background:ft.accentBg, border:`1px solid ${ft.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, color:ft.accent }}>▶</div>
-                <div style={{ color:ft.textSecondary, fontSize:12, fontWeight:500 }}>YouTube embed goes here</div>
-                <div style={{ color:ft.textMuted, fontSize:10 }}>Paste Dr. Canterbury's video URL</div>
+              <div style={{ marginTop:10, borderRadius:8, height:160, overflow:"hidden" }}>
+                <iframe
+                  src={`https://www.youtube.com/embed/${v.ytId}?autoplay=1`}
+                  title={v.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ width:"100%", height:"100%", border:"none", display:"block" }}
+                />
               </div>
             )}
           </div>
@@ -1805,10 +1813,14 @@ function ResourcesScreen({ t, activeVideo, setActiveVideo }) {
               </div>
             </div>
             {active && (
-              <div style={{ marginTop:11, background:t.surfaceAlt, border:`1px solid ${t.border}`, borderRadius:8, height:148, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:6, animation:"fadeIn 0.2s ease" }}>
-                <div style={{ width:42, height:42, borderRadius:"50%", background:t.accentDim, border:`1px solid ${t.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:17, color:t.accent }}>▶</div>
-                <div style={{ color:t.textSub, fontSize:12, fontWeight:500 }}>YouTube embed goes here</div>
-                <div style={{ color:t.textMuted, fontSize:10 }}>Paste Dr. Canterbury's video URL</div>
+              <div style={{ marginTop:11, borderRadius:8, height:160, overflow:"hidden", animation:"fadeIn 0.2s ease" }}>
+                <iframe
+                  src={`https://www.youtube.com/embed/${v.ytId}?autoplay=1`}
+                  title={v.title}
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ width:"100%", height:"100%", border:"none", display:"block" }}
+                />
               </div>
             )}
           </div>
