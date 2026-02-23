@@ -1304,50 +1304,66 @@ function OnboardingScreen({ t, patientInfo, onProceed }) {
 const TOUR_STEPS = [
   {
     target: "home",
+    type: "nav",
     icon: "⬡",
     title: "Home Dashboard",
     body: "Your command center — today's medication progress, risk alerts, upcoming appointments, and quick actions all in one place.",
-    arrowDir: "down",
     pos: "left",
+  },
+  {
+    target: "score",
+    type: "header",
+    icon: "📊",
+    title: "Risk Score",
+    body: "This number updates every time your pharmacist completes a review. Green is low risk, yellow is moderate, red means action is needed — aim to bring it down over time.",
+    pos: "right",
   },
   {
     target: "meds",
+    type: "nav",
     icon: "◎",
     title: "Medications",
-    body: "See the full medication schedule grouped by time of day. Tap Take to mark a dose — your care team sees this in real time.",
-    arrowDir: "down",
+    body: "Full medication schedule grouped by time of day. Each card shows the dose, timing, and any clinical flags your pharmacist has raised.",
     pos: "left",
   },
   {
+    target: "taken",
+    type: "content",
+    icon: "✅",
+    title: "Mark as Taken",
+    body: "Tap the Take button on any medication to log it. Your care team sees this in real time — it helps them spot missed doses and adjust the plan.",
+    pos: "center",
+  },
+  {
     target: "symptoms",
+    type: "nav",
     icon: "♥",
     title: "Symptom Log",
     body: "Notice something unusual? Log symptoms here and they're sent directly to Dr. Patel and Pharm. Chen for review.",
-    arrowDir: "down",
     pos: "center",
   },
   {
     target: "messages",
+    type: "nav",
     icon: "◈",
     title: "Secure Messages",
     body: "End-to-end encrypted chat with your care team. Pharm. Chen checks messages every business day — no phone tag required.",
-    arrowDir: "down",
     pos: "center",
   },
   {
     target: "resources",
+    type: "nav",
     icon: "▶",
     title: "Resources",
     body: "Expert video talks from Dr. DeLon Canterbury on polypharmacy, deprescribing, and keeping your loved one safer.",
-    arrowDir: "down",
     pos: "right",
   },
   {
     target: "settings",
+    type: "nav",
     icon: "◍",
     title: "Settings",
     body: "Switch between dark and light themes, manage notification preferences, review HIPAA settings, and sign out.",
-    arrowDir: "down",
     pos: "right",
   },
 ];
@@ -1356,187 +1372,168 @@ function AppTour({ ft, navItems, step, setStep, onDone, onSkip }) {
   const isPrompt = step === 0;
   const isDone = step > TOUR_STEPS.length;
   const current = !isPrompt && !isDone ? TOUR_STEPS[step - 1] : null;
-
-  // Which nav index is highlighted
-  const highlightIdx = current ? navItems.findIndex(n => n.id === current.target) : -1;
   const totalSteps = TOUR_STEPS.length;
 
-  // Tooltip horizontal position based on nav slot
-  const tooltipLeft = (idx, total) => {
-    const pct = idx / (total - 1); // 0 → 1
-    if (pct <= 0.2) return "8px";
-    if (pct >= 0.8) return null;
-    return null;
-  };
-  const tooltipRight = (idx, total) => {
-    const pct = idx / (total - 1);
-    if (pct >= 0.8) return "8px";
-    return null;
-  };
-  const tooltipTransform = (idx, total) => {
-    const pct = idx / (total - 1);
-    if (pct > 0.2 && pct < 0.8) return "translateX(-50%)";
-    return "none";
-  };
-  const tooltipLeftPct = (idx, total) => {
-    const pct = idx / (total - 1);
-    if (pct > 0.2 && pct < 0.8) return `${(idx / (total - 1)) * 100}%`;
-    return null;
-  };
+  // Nav highlight index (only for nav-type steps)
+  const highlightIdx = current?.type === "nav"
+    ? navItems.findIndex(n => n.id === current.target)
+    : -1;
+
+  // Tooltip card position based on step type
+  const cardStyle = (() => {
+    if (isPrompt) return { top:"50%", left:"50%", transform:"translate(-50%,-50%)", width:280 };
+    if (!current) return {};
+    if (current.type === "header") {
+      // Below the header, right-aligned to match score position
+      return { top: 72, right: 10, width: 230 };
+    }
+    if (current.type === "content") {
+      // Mid-screen, centered — points at medication card area
+      return { top: "38%", left: "50%", transform: "translateX(-50%)", width: 240 };
+    }
+    // nav type — above nav bar, positioned by slot
+    const pct = highlightIdx / (navItems.length - 1);
+    if (pct <= 0.2)  return { bottom: 76, left: 8, width: 220 };
+    if (pct >= 0.8)  return { bottom: 76, right: 8, width: 220 };
+    return { bottom: 76, left:`${pct * 100}%`, transform:"translateX(-50%)", width: 220 };
+  })();
+
+  // Arrow styles per type
+  const arrowEl = (() => {
+    if (isPrompt || !current) return null;
+    const base = { position:"absolute", width:14, height:14, background:ft.cardBg, border:`1.5px solid ${ft.accent}`, borderRadius:"0 0 3px 0" };
+
+    if (current.type === "header") {
+      // Arrow pointing UP at the header score — sits on top edge of card
+      return <div style={{ ...base, top:-8, right:24, borderBottom:"none", borderLeft:"none", transform:"rotate(-135deg)" }} />;
+    }
+    if (current.type === "content") {
+      // Arrow pointing DOWN toward the med cards below
+      return <div style={{ ...base, bottom:-8, left:"50%", transform:"translateX(-50%) rotate(45deg)", borderTop:"none", borderLeft:"none" }} />;
+    }
+    // Nav arrow — points DOWN at the nav bar
+    const pct = highlightIdx / (navItems.length - 1);
+    const left  = pct <= 0.2  ? 24       : pct >= 0.8 ? null : "50%";
+    const right = pct >= 0.8  ? 24       : null;
+    const tf    = (pct > 0.2 && pct < 0.8) ? "translateX(-50%) rotate(45deg)" : "rotate(45deg)";
+    return <div style={{ ...base, bottom:-8, left, right, transform:tf, borderTop:"none", borderLeft:"none" }} />;
+  })();
+
+  // Header highlight cutout (score badge area)
+  const headerHighlight = current?.type === "header" && (
+    <div style={{
+      position:"absolute", top:0, right:0, width:"50%", height:66,
+      zIndex:42, background:ft.headerBg,
+      borderBottom:`2px solid ${ft.accent}`,
+      borderLeft:`2px solid ${ft.accent}44`,
+      borderRadius:"0 34px 0 0",
+      display:"flex", alignItems:"center", justifyContent:"flex-end",
+      paddingRight:20, gap:8,
+      boxShadow:`0 0 0 3px ${ft.accent}22`,
+      pointerEvents:"none", animation:"fadeIn 0.2s ease",
+    }}>
+      <div style={{ width:8, height:8, borderRadius:"50%", background:ft.danger }} />
+      <div style={{ fontSize:13, fontWeight:700, color:ft.danger }}>Score: 82</div>
+    </div>
+  );
+
+  // Content highlight cutout (medication Take button area)
+  const contentHighlight = current?.type === "content" && (
+    <div style={{
+      position:"absolute", top:160, left:12, right:12,
+      zIndex:42, background:ft.cardBg,
+      border:`2px solid ${ft.accent}`,
+      borderRadius:12, padding:"12px 14px",
+      display:"flex", alignItems:"center", justifyContent:"space-between",
+      boxShadow:`0 0 0 4px ${ft.accent}22, 0 8px 24px rgba(0,0,0,0.3)`,
+      pointerEvents:"none", animation:"fadeIn 0.2s ease",
+    }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ width:10, height:10, borderRadius:"50%", background:"#8b5cf6", flexShrink:0 }} />
+        <div>
+          <div style={{ fontSize:13, fontWeight:600, color:ft.textPrimary }}>Lisinopril</div>
+          <div style={{ fontSize:11, color:ft.textSecondary }}>10mg · 8:00 AM</div>
+        </div>
+      </div>
+      <div style={{ padding:"5px 13px", borderRadius:8, border:`1px solid ${ft.accent}`, background:ft.accentBg, color:ft.accent, fontSize:11, fontWeight:700 }}>Take</div>
+    </div>
+  );
 
   if (isDone) return null;
 
   return (
     <>
-      {/* Backdrop — semi-transparent, blocks interaction */}
-      <div
-        onClick={onSkip}
-        style={{
-          position: "absolute", inset: 0, zIndex: 40,
-          background: "rgba(0,0,0,0.55)",
-          backdropFilter: "blur(1px)",
-          borderRadius: 34,
-          animation: "fadeIn 0.25s ease",
-        }}
-      />
+      {/* Backdrop */}
+      <div onClick={onSkip} style={{ position:"absolute", inset:0, zIndex:40, background:"rgba(0,0,0,0.58)", backdropFilter:"blur(1px)", borderRadius:34, animation:"fadeIn 0.25s ease" }} />
 
-      {/* Cutout highlight on active nav button */}
-      {current && highlightIdx >= 0 && (
+      {/* Nav tab highlight */}
+      {highlightIdx >= 0 && (
         <div style={{
-          position: "absolute",
-          bottom: 0,
-          left: `${(highlightIdx / navItems.length) * 100}%`,
-          width: `${100 / navItems.length}%`,
-          height: 68,
-          zIndex: 42,
-          background: ft.navBg,
-          borderTop: `2px solid ${ft.accent}`,
-          borderRadius: highlightIdx === 0 ? "0 0 0 34px" : highlightIdx === navItems.length - 1 ? "0 0 34px 0" : 0,
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
-          boxShadow: `0 0 0 3px ${ft.accent}44`,
-          pointerEvents: "none",
-          animation: "fadeIn 0.2s ease",
+          position:"absolute", bottom:0,
+          left:`${(highlightIdx / navItems.length) * 100}%`,
+          width:`${100 / navItems.length}%`, height:68,
+          zIndex:42, background:ft.navBg,
+          borderTop:`2px solid ${ft.accent}`,
+          borderRadius: highlightIdx === 0 ? "0 0 0 34px" : highlightIdx === navItems.length-1 ? "0 0 34px 0" : 0,
+          display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:3,
+          boxShadow:`0 0 0 3px ${ft.accent}33`, pointerEvents:"none", animation:"fadeIn 0.2s ease",
         }}>
-          <span style={{ fontSize: 15, opacity: 1, color: ft.navActive }}>{navItems[highlightIdx]?.icon}</span>
-          <span style={{ fontSize: 9, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, color: ft.navActive }}>{navItems[highlightIdx]?.label}</span>
+          <span style={{ fontSize:15, color:ft.navActive }}>{navItems[highlightIdx]?.icon}</span>
+          <span style={{ fontSize:9, letterSpacing:0.5, textTransform:"uppercase", fontWeight:700, color:ft.navActive }}>{navItems[highlightIdx]?.label}</span>
         </div>
       )}
 
-      {/* Card — prompt or step tooltip */}
-      <div style={{
-        position: "absolute",
-        zIndex: 50,
-        ...(isPrompt ? {
-          // Prompt card — centered in screen
-          top: "50%", left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: 280,
-        } : {
-          // Tooltip anchored above the nav bar
-          bottom: 76,
-          left: tooltipLeft(highlightIdx, navItems.length),
-          right: tooltipRight(highlightIdx, navItems.length),
-          ...(tooltipLeftPct(highlightIdx, navItems.length) ? {
-            left: tooltipLeftPct(highlightIdx, navItems.length),
-            transform: tooltipTransform(highlightIdx, navItems.length),
-          } : {}),
-          width: 220,
-        }),
-        background: ft.cardBg,
-        border: `1.5px solid ${ft.accent}`,
-        borderRadius: 16,
-        padding: "16px 15px 14px",
-        boxShadow: `0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px ${ft.accent}33`,
-        animation: "slideDown 0.25s ease",
-        pointerEvents: "all",
-      }}>
+      {/* Header score highlight */}
+      {headerHighlight}
 
-        {/* Downward arrow pointing at nav bar (steps only) */}
-        {!isPrompt && (
-          <div style={{
-            position: "absolute",
-            bottom: -9,
-            left: highlightIdx <= 1 ? 24 : highlightIdx >= navItems.length - 2 ? "auto" : "50%",
-            right: highlightIdx >= navItems.length - 2 ? 24 : "auto",
-            transform: (highlightIdx > 1 && highlightIdx < navItems.length - 2) ? "translateX(-50%)" : "none",
-            width: 16, height: 16,
-            background: ft.cardBg,
-            border: `1.5px solid ${ft.accent}`,
-            borderTop: "none", borderLeft: "none",
-            transform: (highlightIdx > 1 && highlightIdx < navItems.length - 2)
-              ? "translateX(-50%) rotate(45deg)"
-              : "rotate(45deg)",
-            borderRadius: "0 0 3px 0",
-          }} />
-        )}
+      {/* Content med card highlight */}
+      {contentHighlight}
+
+      {/* Tooltip / prompt card */}
+      <div style={{
+        position:"absolute", zIndex:50, ...cardStyle,
+        background:ft.cardBg, border:`1.5px solid ${ft.accent}`, borderRadius:16,
+        padding:"16px 15px 14px",
+        boxShadow:`0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px ${ft.accent}33`,
+        animation:"slideDown 0.25s ease", pointerEvents:"all",
+      }}>
+        {arrowEl}
 
         {isPrompt ? (
           <>
-            <div style={{ textAlign: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 32, marginBottom: 10 }}>🗺️</div>
-              <div style={{ fontFamily: serif, fontSize: 18, fontWeight: 400, color: ft.textPrimary, marginBottom: 6 }}>Quick App Tour</div>
-              <p style={{ color: ft.textSecondary, fontSize: 12, lineHeight: 1.6, margin: 0 }}>
-                New here? Take a 30-second tour and we'll show you exactly where everything lives.
-              </p>
+            <div style={{ textAlign:"center", marginBottom:14 }}>
+              <div style={{ fontSize:32, marginBottom:10 }}>🗺️</div>
+              <div style={{ fontFamily:serif, fontSize:18, fontWeight:400, color:ft.textPrimary, marginBottom:6 }}>Quick App Tour</div>
+              <p style={{ color:ft.textSecondary, fontSize:12, lineHeight:1.6, margin:0 }}>New here? Take a 30-second tour and we'll show you exactly where everything lives.</p>
             </div>
-            <button
-              onClick={() => setStep(1)}
-              style={{ width: "100%", padding: "11px", borderRadius: 10, border: "none", background: ft.accent, color: "#000", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif", marginBottom: 8 }}
-            >
+            <button onClick={() => setStep(1)} style={{ width:"100%", padding:"11px", borderRadius:10, border:"none", background:ft.accent, color:"#000", fontSize:13, fontWeight:700, cursor:"pointer", fontFamily:"'DM Sans',sans-serif", marginBottom:8 }}>
               Show me around →
             </button>
-            <button
-              onClick={onSkip}
-              style={{ width: "100%", padding: "9px", borderRadius: 10, border: `1px solid ${ft.border}`, background: "transparent", color: ft.textSecondary, fontSize: 12, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
-            >
+            <button onClick={onSkip} style={{ width:"100%", padding:"9px", borderRadius:10, border:`1px solid ${ft.border}`, background:"transparent", color:ft.textSecondary, fontSize:12, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
               Skip, I'll explore myself
             </button>
           </>
         ) : (
           <>
-            {/* Step header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
-              <div style={{ width: 30, height: 30, borderRadius: 8, background: ft.accentBg, border: `1px solid ${ft.accent}44`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>
-                {current.icon}
-              </div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: ft.textPrimary }}>{current.title}</div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:9 }}>
+              <div style={{ width:30, height:30, borderRadius:8, background:ft.accentBg, border:`1px solid ${ft.accent}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:15, flexShrink:0 }}>{current.icon}</div>
+              <div style={{ fontWeight:700, fontSize:14, color:ft.textPrimary }}>{current.title}</div>
             </div>
-
-            {/* Body */}
-            <p style={{ color: ft.textSecondary, fontSize: 12, lineHeight: 1.6, margin: "0 0 13px" }}>{current.body}</p>
-
-            {/* Progress dots */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, marginBottom: 12 }}>
+            <p style={{ color:ft.textSecondary, fontSize:12, lineHeight:1.6, margin:"0 0 13px" }}>{current.body}</p>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:5, marginBottom:12 }}>
               {TOUR_STEPS.map((_, i) => (
-                <div key={i} style={{ width: i === step - 1 ? 16 : 6, height: 6, borderRadius: 3, background: i === step - 1 ? ft.accent : ft.border, transition: "all 0.2s" }} />
+                <div key={i} style={{ width:i===step-1?16:6, height:6, borderRadius:3, background:i===step-1?ft.accent:ft.border, transition:"all 0.2s" }} />
               ))}
             </div>
-
-            {/* Nav buttons */}
-            <div style={{ display: "flex", gap: 7 }}>
+            <div style={{ display:"flex", gap:7 }}>
               {step > 1 && (
-                <button
-                  onClick={() => setStep(s => s - 1)}
-                  style={{ flex: 1, padding: "9px", borderRadius: 9, border: `1px solid ${ft.border}`, background: "transparent", color: ft.textSecondary, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
-                >
-                  ← Back
-                </button>
+                <button onClick={() => setStep(s => s-1)} style={{ flex:1, padding:"9px", borderRadius:9, border:`1px solid ${ft.border}`, background:"transparent", color:ft.textSecondary, fontSize:12, fontWeight:600, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>← Back</button>
               )}
-              <button
-                onClick={() => step >= totalSteps ? onDone() : setStep(s => s + 1)}
-                style={{ flex: 2, padding: "9px", borderRadius: 9, border: "none", background: ft.accent, color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
-              >
+              <button onClick={() => step >= totalSteps ? onDone() : setStep(s => s+1)} style={{ flex:2, padding:"9px", borderRadius:9, border:"none", background:ft.accent, color:"#000", fontSize:12, fontWeight:700, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>
                 {step >= totalSteps ? "Done ✓" : `Next → ${step}/${totalSteps}`}
               </button>
             </div>
-
-            {/* Skip link */}
-            <button
-              onClick={onSkip}
-              style={{ width: "100%", marginTop: 8, background: "none", border: "none", color: ft.textMuted, fontSize: 11, cursor: "pointer", fontFamily: "'DM Sans',sans-serif" }}
-            >
-              Skip tour
-            </button>
+            <button onClick={onSkip} style={{ width:"100%", marginTop:8, background:"none", border:"none", color:ft.textMuted, fontSize:11, cursor:"pointer", fontFamily:"'DM Sans',sans-serif" }}>Skip tour</button>
           </>
         )}
       </div>
